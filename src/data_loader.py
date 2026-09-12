@@ -23,10 +23,29 @@ def load_raw_data():
     return df_races, df_telemetry
 
 
+def clean_driver_name(name: str) -> str:
+    if not isinstance(name, str):
+        return ""
+    name = name.strip()
+    name = name.replace("", "")
+    name = (
+        name.replace("Räikkönen", "Raikkonen")
+        .replace("Räikkönen", "Raikkonen")
+        .replace("Rikknen", "Raikkonen")
+        .replace("Pérez", "Perez")
+        .replace("Prez", "Perez")
+        .replace("Hülkenberg", "Hulkenberg")
+        .replace("Hlkenberg", "Hulkenberg")
+        .replace("Carlos Sainz Jr.", "Carlos Sainz")
+        .replace("Guanyu Zhou", "Zhou Guanyu")
+    )
+    return name
+
+
 def build_real_f1_dataset(min_year: int = 2021):
     print(f"Loading official F1DB tables for seasons {min_year}-2026...")
 
-    # Load official tables
+    # Load official tables with utf-8 encoding
     races_csv = os.path.join(F1DB_DIR, "f1db-races.csv")
     results_csv = os.path.join(F1DB_DIR, "f1db-races-race-results.csv")
     drivers_csv = os.path.join(F1DB_DIR, "f1db-drivers.csv")
@@ -34,12 +53,12 @@ def build_real_f1_dataset(min_year: int = 2021):
     circuits_csv = os.path.join(F1DB_DIR, "f1db-circuits.csv")
     pit_stops_csv = os.path.join(F1DB_DIR, "f1db-races-pit-stops.csv")
 
-    df_races = pd.read_csv(races_csv)
-    df_results = pd.read_csv(results_csv, low_memory=False)
-    df_drivers = pd.read_csv(drivers_csv)
-    df_constructors = pd.read_csv(constructors_csv)
-    df_circuits = pd.read_csv(circuits_csv)
-    df_pit_stops = pd.read_csv(pit_stops_csv)
+    df_races = pd.read_csv(races_csv, encoding="utf-8")
+    df_results = pd.read_csv(results_csv, low_memory=False, encoding="utf-8")
+    df_drivers = pd.read_csv(drivers_csv, encoding="utf-8")
+    df_constructors = pd.read_csv(constructors_csv, encoding="utf-8")
+    df_circuits = pd.read_csv(circuits_csv, encoding="utf-8")
+    df_pit_stops = pd.read_csv(pit_stops_csv, encoding="utf-8")
 
     # Filter to requested modern seasons (2021 through 2026)
     df_res_modern = df_results[df_results["year"] >= min_year].copy()
@@ -84,8 +103,8 @@ def build_real_f1_dataset(min_year: int = 2021):
     df_clean["circuit_type"] = df_merged["type"].fillna("Race")
     df_clean["place_name"] = df_merged["placeName"].fillna("")
     df_clean["country"] = df_merged["countryId"].fillna("")
-    df_clean["driver_name"] = df_merged["name"]
-    df_clean["driver_code"] = df_merged["abbreviation"].fillna(df_merged["name"].str[:3].str.upper())
+    df_clean["driver_name"] = df_merged["name"].apply(clean_driver_name)
+    df_clean["driver_code"] = df_merged["abbreviation"].fillna(df_clean["driver_name"].str[:3].str.upper())
     df_clean["constructor"] = df_merged["name_constructor"]
 
     # Starting Grid & Finishing Position
