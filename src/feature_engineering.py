@@ -1,7 +1,7 @@
 """
-Feature Engineering Pipeline for F1 Race Intelligence & Modeling
-Transforms raw race entries, qualifying deltas, and circuit metrics
-into ML-ready feature matrices for classification and regression tasks.
+Feature Engineering Pipeline for Real Formula 1 Data (2021-2026)
+Constructs predictive feature matrices from real FIA Grand Prix results,
+grid positions, constructor strength, and driver form.
 """
 
 import os
@@ -18,62 +18,64 @@ def load_raw_data():
     races_path = os.path.join(RAW_DIR, "f1_races.csv")
     telemetry_path = os.path.join(RAW_DIR, "f1_lap_telemetry.csv")
     df_races = pd.read_csv(races_path)
-    df_telemetry = pd.read_csv(telemetry_path)
+    df_telemetry = pd.read_csv(telemetry_path) if os.path.exists(telemetry_path) else pd.DataFrame()
     return df_races, df_telemetry
 
 
 def build_engineered_features(df_races: pd.DataFrame) -> pd.DataFrame:
     df = df_races.copy()
 
-    # Sort sequentially by season, round, and grid position
+    # Sort chronologically
     df.sort_values(by=["season", "round", "grid_position"], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    # 1. Driver Rolling Form (Points and Avg Finish in prior races)
+    # 1. Driver Rolling Form (Points and Avg Finish in previous 4 races)
     df["driver_rolling_points"] = (
-        df.groupby(["season", "driver_code"])["points"]
+        df.groupby(["driver_code"])["points"]
         .transform(lambda x: x.shift(1).rolling(window=4, min_periods=1).mean())
         .fillna(0.0)
     )
 
     df["driver_rolling_finish"] = (
-        df.groupby(["season", "driver_code"])["finish_position"]
+        df.groupby(["driver_code"])["finish_position"]
         .transform(lambda x: x.shift(1).rolling(window=4, min_periods=1).mean())
-        .fillna(10.0)
+        .fillna(12.0)
     )
 
-    # 2. Team Rolling Dominance (Constructor points percentage)
+    # 2. Constructor Rolling Dominance (Constructor points over last 4 races)
     df["team_rolling_pts"] = (
-        df.groupby(["season", "constructor"])["points"]
+        df.groupby(["constructor"])["points"]
         .transform(lambda x: x.shift(1).rolling(window=4, min_periods=1).sum())
         .fillna(0.0)
     )
 
-    # 3. Grid Conversion Potential: Interaction between grid position and overtake difficulty
-    # Higher difficulty makes grid position more determinant of finish
+    # 3. Grid Conversion & Interaction Terms
     df["grid_circuit_difficulty_interaction"] = df["grid_position"] * df["overtake_difficulty"]
-
-    # 4. Qualifying Delta Normalized
-    df["quali_delta_clipped"] = df["qualifying_delta"].clip(0.0, 3.0)
-
-    # 5. Categorical Mappings
-    downforce_map = {"Low": 1, "Medium": 2, "High": 3}
-    df["downforce_numeric"] = df["downforce_level"].map(downforce_map).fillna(2)
-
-    weather_map = {"Dry": 0, "Mixed": 1, "Wet": 2}
-    df["weather_numeric"] = df["weather"].map(weather_map).fillna(0)
-
-    # 6. Positions Gained / Lost (Target & Diagnostic metric)
-    df["positions_change"] = df["grid_position"] - df["finish_position"]
-
-    # 7. Front-row start flag
     df["is_front_row"] = (df["grid_position"] <= 2).astype(int)
     df["is_top_5_grid"] = (df["grid_position"] <= 5).astype(int)
+    df["is_top_10_grid"] = (df["grid_position"] <= 10).astype(int)
+
+    # 4. Positions Gained/Lost
+    df["positions_change"] = df["grid_position"] - df["finish_position"]
+
+    # 5. Constructor Tier Categorization based on historical average points
+    team_pts = df.groupby("constructor")["points"].mean()
+    tier_map = {}
+    for team, avg_pt in team_pts.items():
+        if avg_pt >= 15.0:
+            tier_map[team] = 1
+        elif avg_pt >= 7.0:
+            tier_map[team] = 2
+        elif avg_pt >= 2.5:
+            tier_map[team] = 3
+        else:
+            tier_map[team] = 4
+    df["team_tier"] = df["constructor"].map(tier_map).fillna(3)
 
     # Save to processed directory
     processed_path = os.path.join(PROCESSED_DIR, "f1_features.csv")
     df.to_csv(processed_path, index=False)
-    print(f"Engineered features saved to {processed_path} ({len(df)} rows, {len(df.columns)} columns)")
+    print(f"[SUCCESS] Real engineered features saved to {processed_path} ({len(df)} rows, {len(df.columns)} columns)")
     return df
 
 
@@ -88,19 +90,17 @@ def get_modeling_data(df: pd.DataFrame = None):
 
     feature_cols = [
         "grid_position",
-        "qualifying_delta",
-        "team_tier",
-        "driver_skill",
         "overtake_difficulty",
-        "downforce_numeric",
-        "weather_numeric",
-        "track_temp_c",
+        "is_street_circuit",
+        "team_tier",
         "driver_rolling_points",
         "driver_rolling_finish",
         "team_rolling_pts",
         "grid_circuit_difficulty_interaction",
         "is_front_row",
-        "is_top_5_grid"
+        "is_top_5_grid",
+        "is_top_10_grid",
+        "pit_stops_count"
     ]
 
     target_podium = "podium_finish"
@@ -110,9 +110,9 @@ def get_modeling_data(df: pd.DataFrame = None):
     y_podium = df[target_podium].copy()
     y_winner = df[target_winner].copy()
 
-    # Chronological Train-Test Split (e.g. 2021-2023 Train, 2024 Test)
-    train_mask = df["season"] < 2024
-    test_mask = df["season"] == 2024
+    # Chronological Train-Test Split: Train on 2021-2024, Test on real 2025 & 2026 seasons!
+    train_mask = df["season"] < 2025
+    test_mask = df["season"] >= 2025
 
     X_train, X_test = X[train_mask], X[test_mask]
     y_train_podium, y_test_podium = y_podium[train_mask], y_podium[test_mask]

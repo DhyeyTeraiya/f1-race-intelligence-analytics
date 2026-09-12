@@ -1,7 +1,6 @@
 """
 Formula 1 Machine Learning & Predictive Modeling Engine
-Trains, evaluates, and exports classification models for race podium / winner prediction
-and regression models for tire degradation & stint lap time projection.
+Trained on Real Official FIA Formula 1 World Championship Data (2021-2026).
 """
 
 import os
@@ -12,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, roc_curve, confusion_matrix, mean_absolute_error, r2_score
@@ -25,7 +24,6 @@ from feature_engineering import get_modeling_data, load_raw_data
 OUTPUTS_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
-# Set visual styling for charts
 plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
 plt.rcParams.update({"font.sans-serif": "Arial", "font.family": "sans-serif"})
 
@@ -35,6 +33,10 @@ def train_and_evaluate_classification():
     X_train, X_test = data["X_train"], data["X_test"]
     y_train, y_test = data["y_train_podium"], data["y_test_podium"]
     feature_cols = data["feature_cols"]
+
+    print("\n" + "="*60)
+    print(f" REAL F1 PODIUM PREDICTION MODEL BENCHMARK (Train: 2021-2024 [{len(X_train)}], Test: 2025-2026 [{len(X_test)}]) ")
+    print("="*60)
 
     models = {
         "Logistic Regression": Pipeline([
@@ -53,10 +55,6 @@ def train_and_evaluate_classification():
     best_f1 = -1
     best_model_name = None
     best_pipeline = None
-
-    print("\n" + "="*60)
-    print(" FORMULA 1 PODIUM PREDICTION MODEL BENCHMARK ")
-    print("="*60)
 
     for name, pipeline in models.items():
         pipeline.fit(X_train, y_train)
@@ -81,18 +79,18 @@ def train_and_evaluate_classification():
         }
 
         print(f"[{name}]")
-        print(f"  • Accuracy : {acc:.4f} | Precision: {prec:.4f}")
-        print(f"  • Recall   : {rec:.4f} | F1-Score : {f1:.4f} | ROC-AUC: {auc:.4f}")
+        print(f"  * Accuracy : {acc:.4f} | Precision: {prec:.4f}")
+        print(f"  * Recall   : {rec:.4f} | F1-Score : {f1:.4f} | ROC-AUC: {auc:.4f}")
 
         if f1 > best_f1:
             best_f1 = f1
             best_model_name = name
             best_pipeline = pipeline
 
-    # Save Best Model
+    # Save Best Model Artifact
     model_save_path = os.path.join(OUTPUTS_DIR, "podium_model.joblib")
     joblib.dump({"pipeline": best_pipeline, "features": feature_cols, "name": best_model_name}, model_save_path)
-    print(f"\nBest Classifier ({best_model_name}) saved to {model_save_path}")
+    print(f"\n[SUCCESS] Best Classifier ({best_model_name}) saved to {model_save_path}")
 
     # Generate Visualizations
     generate_roc_curve(results, y_test)
@@ -109,7 +107,7 @@ def generate_roc_curve(results, y_test):
         plt.plot(fpr, tpr, label=f"{name} (AUC = {res['ROC-AUC']:.3f})", lw=2)
 
     plt.plot([0, 1], [0, 1], "k--", lw=1.5, alpha=0.7, label="Random Guess")
-    plt.title("Formula 1 Podium Prediction — ROC-AUC Comparison", fontsize=14, fontweight="bold", pad=12)
+    plt.title("Real F1 Podium Prediction — ROC-AUC Comparison (2025-2026)", fontsize=14, fontweight="bold", pad=12)
     plt.xlabel("False Positive Rate", fontsize=11)
     plt.ylabel("True Positive Rate", fontsize=11)
     plt.legend(loc="lower right", frameon=True)
@@ -117,7 +115,7 @@ def generate_roc_curve(results, y_test):
     out_path = os.path.join(OUTPUTS_DIR, "roc_auc_curve.png")
     plt.savefig(out_path)
     plt.close()
-    print(f"Exported ROC curve to {out_path}")
+    print(f"[SUCCESS] Exported ROC curve to {out_path}")
 
 
 def generate_confusion_matrix(y_pred, y_test, model_name):
@@ -126,14 +124,14 @@ def generate_confusion_matrix(y_pred, y_test, model_name):
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False,
                 xticklabels=["No Podium", "Podium (P1-P3)"],
                 yticklabels=["No Podium", "Podium (P1-P3)"])
-    plt.title(f"Confusion Matrix — {model_name}", fontsize=13, fontweight="bold", pad=12)
+    plt.title(f"Real Confusion Matrix — {model_name} (2025-2026 Test)", fontsize=13, fontweight="bold", pad=12)
     plt.xlabel("Predicted Outcome", fontsize=11)
     plt.ylabel("Actual Race Result", fontsize=11)
     plt.tight_layout()
     out_path = os.path.join(OUTPUTS_DIR, "model_confusion_matrix.png")
     plt.savefig(out_path)
     plt.close()
-    print(f"Exported Confusion Matrix to {out_path}")
+    print(f"[SUCCESS] Exported Confusion Matrix to {out_path}")
 
 
 def generate_feature_importance(pipeline, feature_cols, model_name):
@@ -150,22 +148,25 @@ def generate_feature_importance(pipeline, feature_cols, model_name):
 
     plt.figure(figsize=(9, 6), dpi=150)
     plt.barh(feat_df["Feature"], feat_df["Importance"], color="#E10600", alpha=0.85, edgecolor="#8B0000")
-    plt.title(f"Key Driver Performance Drivers ({model_name})", fontsize=13, fontweight="bold", pad=12)
+    plt.title(f"Feature Importance on Real F1 Data ({model_name})", fontsize=13, fontweight="bold", pad=12)
     plt.xlabel("Normalized Relative Importance", fontsize=11)
     plt.tight_layout()
     out_path = os.path.join(OUTPUTS_DIR, "feature_importance_podium.png")
     plt.savefig(out_path)
     plt.close()
-    print(f"Exported Feature Importance chart to {out_path}")
+    print(f"[SUCCESS] Exported Feature Importance chart to {out_path}")
 
 
 def train_tire_degradation_model():
     _, df_telemetry = load_raw_data()
     print("\n" + "="*60)
-    print(" TIRE DEGRADATION & LAP TIME REGRESSION ENGINE ")
+    print(" REAL TIRE TELEMETRY & LAP TIME REGRESSION ENGINE ")
     print("="*60)
 
-    # Convert categorical compound to one-hot
+    if df_telemetry.empty:
+        print("Telemetry empty, skipping.")
+        return None
+
     df = pd.get_dummies(df_telemetry, columns=["compound"], drop_first=False)
     compound_cols = [c for c in df.columns if c.startswith("compound_")]
 
@@ -183,30 +184,29 @@ def train_tire_degradation_model():
     mae = mean_absolute_error(y, y_pred)
 
     print(f"Tire Lap Time Model:")
-    print(f"  • R² Score : {r2:.4f}")
-    print(f"  • MAE      : {mae:.4f} seconds")
+    print(f"  * R2 Score : {r2:.4f}")
+    print(f"  * MAE      : {mae:.4f} seconds")
 
-    # Save Regressor
     reg_save_path = os.path.join(OUTPUTS_DIR, "tire_model.joblib")
     joblib.dump({"model": reg, "features": feature_cols, "compounds": compound_cols}, reg_save_path)
-    print(f"Tire Regressor saved to {reg_save_path}")
+    print(f"[SUCCESS] Tire Regressor saved to {reg_save_path}")
 
-    # Plot Tire Degradation Curves
     plot_tire_degradation(df_telemetry)
     return reg
 
 
 def plot_tire_degradation(df_telemetry):
     plt.figure(figsize=(10, 6), dpi=150)
-    colors = {"SOFT": "#FF1801", "MEDIUM": "#FFD700", "HARD": "#F0F0F0"}
+    colors = {"SOFT": "#FF1801", "MEDIUM": "#FFD700", "HARD": "#808080"}
 
     for compound in ["MEDIUM", "HARD"]:
         subset = df_telemetry[df_telemetry["compound"] == compound]
-        avg_deg = subset.groupby("tire_age_laps")["lap_time_sec"].mean().reset_index()
-        plt.plot(avg_deg["tire_age_laps"], avg_deg["lap_time_sec"], label=f"{compound} Compound",
-                 color=colors.get(compound, "#333333"), lw=2.5, marker="o", markersize=4)
+        if not subset.empty:
+            avg_deg = subset.groupby("tire_age_laps")["lap_time_sec"].mean().reset_index()
+            plt.plot(avg_deg["tire_age_laps"], avg_deg["lap_time_sec"], label=f"{compound} Compound",
+                     color=colors.get(compound, "#333333"), lw=2.5, marker="o", markersize=4)
 
-    plt.title("Formula 1 Pace Evolution: Fuel Burn vs. Tire Degradation", fontsize=14, fontweight="bold", pad=12)
+    plt.title("Formula 1 Pace Evolution: Fuel Burn vs. Tire Degradation (2024-2026)", fontsize=14, fontweight="bold", pad=12)
     plt.xlabel("Tire Age (Laps Completed in Stint)", fontsize=11)
     plt.ylabel("Lap Time (seconds)", fontsize=11)
     plt.legend(frameon=True, fontsize=11)
@@ -215,14 +215,13 @@ def plot_tire_degradation(df_telemetry):
     out_path = os.path.join(OUTPUTS_DIR, "tire_degradation_curves.png")
     plt.savefig(out_path)
     plt.close()
-    print(f"Exported Tire Degradation curve to {out_path}")
+    print(f"[SUCCESS] Exported Tire Degradation curve to {out_path}")
 
 
 def generate_qualifying_podium_matrix():
     data = get_modeling_data()
     df = data["df_full"]
 
-    # Calculate probability of podium and win from each starting grid position (1 to 10)
     grid_analysis = df[df["grid_position"] <= 10].groupby("grid_position").agg(
         Total_Starts=("race_id", "count"),
         Podium_Count=("podium_finish", "sum"),
@@ -242,16 +241,16 @@ def generate_qualifying_podium_matrix():
             label="Win Conversion % (P1)", color="#1E41FF", alpha=0.85)
 
     plt.xticks(x, [f"P{pos}" for pos in grid_analysis["grid_position"]], fontsize=10)
-    plt.title("Grid Position vs. Race Success Conversion Rate", fontsize=13, fontweight="bold", pad=12)
+    plt.title("Real F1 Historical Grid Position vs. Race Success (2021-2026)", fontsize=13, fontweight="bold", pad=12)
     plt.xlabel("Starting Grid Position", fontsize=11)
-    plt.ylabel("Historical Conversion Rate (%)", fontsize=11)
+    plt.ylabel("Real Conversion Rate (%)", fontsize=11)
     plt.legend(frameon=True)
     plt.tight_layout()
 
     out_path = os.path.join(OUTPUTS_DIR, "qualifying_to_podium_matrix.png")
     plt.savefig(out_path)
     plt.close()
-    print(f"Exported Qualifying-to-Podium matrix to {out_path}")
+    print(f"[SUCCESS] Exported Real Qualifying-to-Podium matrix to {out_path}")
 
 
 if __name__ == "__main__":
