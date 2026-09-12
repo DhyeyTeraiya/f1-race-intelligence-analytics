@@ -107,11 +107,12 @@ with c5:
     st.markdown('<div class="metric-card"><div class="metric-value">0.21s</div><div class="metric-label">Tire Regressor MAE</div></div>', unsafe_allow_html=True)
 
 # Navigation Tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏁 Predictive Podium AI (2025-2026)",
+    "🏆 Driver & Team Dominance Shift",
+    "🏎️ Car Development & Pace Index",
     "⏱️ Tactical Pit Stop Undercut Simulator",
-    "📈 Real Telemetry & Tire Degradation",
-    "📊 Official Season Benchmarks & Conversion Matrix"
+    "📊 Official Benchmarks & Telemetry"
 ])
 
 # ==========================================
@@ -144,7 +145,6 @@ with tab1:
             is_street = int(circuit_info["is_street_circuit"])
             overtake_diff = int(circuit_info["overtake_difficulty"])
 
-            # Compute driver rolling averages from real historical points
             driver_avg_pts = float(driver_rows["points"].tail(4).mean()) if not driver_rows.empty else 8.0
             driver_avg_fin = float(driver_rows["finish_position"].tail(4).mean()) if not driver_rows.empty else 7.0
 
@@ -152,7 +152,6 @@ with tab1:
             team_rows = df_races[df_races["constructor"] == team_name]
             team_pts = float(team_rows["points"].tail(8).sum()) if not team_rows.empty else 25.0
 
-            # Tier
             if team_pts >= 50.0:
                 team_tier = 1
             elif team_pts >= 25.0:
@@ -182,7 +181,6 @@ with tab1:
             podium_prob = pipeline.predict_proba(input_df)[0][1] * 100
             pred_podium = pipeline.predict(input_df)[0]
 
-            # Gauge Visualization
             fig_gauge = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=podium_prob,
@@ -217,9 +215,59 @@ with tab1:
 
 
 # ==========================================
-# TAB 2: UNDERCUT STRATEGY SIMULATOR
+# TAB 2: DRIVER & TEAM DOMINANCE SHIFT
 # ==========================================
 with tab2:
+    st.subheader("🏆 Driver & Constructor Championship Shift (2021–2026)")
+    st.write("Examine the real shift in championship dominance across drivers and teams over 6 official seasons.")
+
+    d1, d2 = st.columns(2)
+    with d1:
+        img_dw = os.path.join(OUTPUTS_DIR, "driver_wins_podiums_evolution.png")
+        if os.path.exists(img_dw):
+            st.image(img_dw, caption="Total Grand Prix Victories and Podiums by Driver (2021-2026)", use_container_width=True)
+
+    with d2:
+        img_cd = os.path.join(OUTPUTS_DIR, "constructor_dominance_shift.png")
+        if os.path.exists(img_cd):
+            st.image(img_cd, caption="Constructor Championship Points & Win Share Evolution", use_container_width=True)
+
+    # Interactive Season Table
+    st.markdown("#### 📋 Real Driver Standings Summary")
+    driver_summary = df_races.groupby("driver_name").agg(
+        Starts=("race_id", "count"),
+        Wins=("race_winner", "sum"),
+        Podiums=("podium_finish", "sum"),
+        Total_Points=("points", "sum"),
+        Avg_Finish=("finish_position", "mean")
+    ).sort_values(by="Total_Points", ascending=False).head(12)
+
+    st.dataframe(driver_summary.style.format({"Avg_Finish": "{:.1f}", "Total_Points": "{:.1f}"}), use_container_width=True)
+
+
+# ==========================================
+# TAB 3: CAR DEVELOPMENT & PACE INDEX
+# ==========================================
+with tab3:
+    st.subheader("🏎️ Car Development Trajectory & Team Pace Index (2021–2026)")
+    st.write("Evaluating which team developed the faster car across the seasons using qualifying grid ranks and race finish deltas.")
+
+    p1, p2 = st.columns(2)
+    with p1:
+        img_car = os.path.join(OUTPUTS_DIR, "car_development_pace_gap.png")
+        if os.path.exists(img_car):
+            st.image(img_car, caption="Car Development Trajectory: Average Starting Grid Rank by Season", use_container_width=True)
+
+    with p2:
+        img_prof = os.path.join(OUTPUTS_DIR, "driver_performance_profile.png")
+        if os.path.exists(img_prof):
+            st.image(img_prof, caption="Driver Efficiency: Qualifying vs. Race Day Position Gains", use_container_width=True)
+
+
+# ==========================================
+# TAB 4: UNDERCUT STRATEGY SIMULATOR
+# ==========================================
+with tab4:
     st.subheader("⏱️ Tactical Pit Stop Undercut & Overcut Engine")
     st.write("Simulate strategic pit stop timing based on real pit lane deltas and fresh tire compound pace advantages.")
 
@@ -267,63 +315,26 @@ with tab2:
 
 
 # ==========================================
-# TAB 3: REAL TELEMETRY & TIRE DEGRADATION
+# TAB 5: OFFICIAL BENCHMARKS & TELEMETRY
 # ==========================================
-with tab3:
-    st.subheader("📈 Tire Degradation & Stint Telemetry Analysis")
-    st.write("Inspect real-anchored tire degradation curves, lap pace progression, and fuel burn offsets.")
-
-    if not df_telemetry.empty:
-        colT1, colT2 = st.columns([1, 1])
-
-        with colT1:
-            fig_deg = px.line(
-                df_telemetry.head(600),
-                x="tire_age_laps",
-                y="lap_time_sec",
-                color="compound",
-                title="Lap Time Progression: Stint Lap vs. Compound",
-                labels={"tire_age_laps": "Tire Age (Laps)", "lap_time_sec": "Lap Time (Seconds)"},
-                color_discrete_map={"MEDIUM": "#FFD700", "HARD": "#FAFAFA"}
-            )
-            fig_deg.update_layout(paper_bgcolor="#0E1117", plot_bgcolor="#161B22", font=dict(color="#FAFAFA"))
-            st.plotly_chart(fig_deg, use_container_width=True)
-
-        with colT2:
-            fig_fuel = px.scatter(
-                df_telemetry.head(400),
-                x="fuel_load_kg",
-                y="lap_time_sec",
-                color="driver_code",
-                title="Fuel Load Decay vs. Lap Pace (2024-2026 Telemetry)",
-                labels={"fuel_load_kg": "Fuel Remaining (kg)", "lap_time_sec": "Lap Time (Seconds)"}
-            )
-            fig_fuel.update_layout(paper_bgcolor="#0E1117", plot_bgcolor="#161B22", font=dict(color="#FAFAFA"))
-            st.plotly_chart(fig_fuel, use_container_width=True)
-
-
-# ==========================================
-# TAB 4: OFFICIAL BENCHMARKS & CONVERSION
-# ==========================================
-with tab4:
-    st.subheader("📊 Official Formula 1 Data Science Benchmarks")
+with tab5:
+    st.subheader("📊 Official Formula 1 Data Science Benchmarks & Tire Telemetry")
 
     mb1, mb2 = st.columns(2)
-
     with mb1:
         roc_path = os.path.join(OUTPUTS_DIR, "roc_auc_curve.png")
         if os.path.exists(roc_path):
             st.image(roc_path, caption="Official ROC-AUC Curve Evaluated on 2025-2026 Test Races", use_container_width=True)
 
-        cm_path = os.path.join(OUTPUTS_DIR, "model_confusion_matrix.png")
-        if os.path.exists(cm_path):
-            st.image(cm_path, caption="Confusion Matrix on 2025-2026 Real Grand Prix Results", use_container_width=True)
+        grid_path = os.path.join(OUTPUTS_DIR, "qualifying_to_podium_matrix.png")
+        if os.path.exists(grid_path):
+            st.image(grid_path, caption="Real F1 Historical Grid to Podium & Win Conversion", use_container_width=True)
 
     with mb2:
         fi_path = os.path.join(OUTPUTS_DIR, "feature_importance_podium.png")
         if os.path.exists(fi_path):
             st.image(fi_path, caption="Feature Importance for Real Race Podium Prediction", use_container_width=True)
 
-        grid_path = os.path.join(OUTPUTS_DIR, "qualifying_to_podium_matrix.png")
-        if os.path.exists(grid_path):
-            st.image(grid_path, caption="Real F1 Historical Grid to Podium & Win Conversion", use_container_width=True)
+        deg_path = os.path.join(OUTPUTS_DIR, "tire_degradation_curves.png")
+        if os.path.exists(deg_path):
+            st.image(deg_path, caption="Tire Degradation Curves across Stints", use_container_width=True)
