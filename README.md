@@ -208,3 +208,13 @@ GitHub Actions runs the Python test suite on pushes and pull requests to `main`.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Contributing
+
+This is a public open-source project and contributions are welcome. You can report bugs, propose analytics features, improve the live-data adapters, add tests, or submit pull requests that solve open issues.
+
+- Read the [contribution guide](CONTRIBUTING.md).
+- Use the [bug report](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/issues/new?template=bug_report.md) or [feature request](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/issues/new?template=feature_request.md) template.
+- Search existing issues before opening a duplicate.
+- Keep changes focused, cite data sources, and run the test suite before submitting a pull request.
+- Maintainers review issues and merge accepted solutions after CI and code review pass.
