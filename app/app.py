@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 
 import joblib
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -16,8 +17,10 @@ SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
 OUTPUTS_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
 sys.path.append(SRC_DIR)
+from advanced_analytics import build_prediction_sensitivity, build_strategy_robustness_grid  # noqa: E402
 from live_data import fetch_openf1_live, load_live_season  # noqa: E402
 from strategy_simulator import StrategySimulator  # noqa: E402
+from telemetry_analytics import build_degradation_curve, build_stint_pace_summary  # noqa: E402
 
 st.set_page_config(page_title="F1 Race Intelligence", page_icon="🏎️", layout="wide")
 st.markdown("""
@@ -212,6 +215,22 @@ with tab_predict:
             fig.update_layout(height=300, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
             st.plotly_chart(fig, use_container_width=True)
             st.info(f"{driver} / {team} • recent average finish: {input_df.loc[0, 'driver_rolling_finish']:.1f} • recent team points: {team_points:.1f}")
+            st.markdown("#### Scenario sensitivity")
+            st.caption("How the same driver-and-circuit profile changes across starting-grid and pit-stop assumptions. This is a what-if analysis, not a calibrated confidence interval.")
+            sensitivity = build_prediction_sensitivity(input_df, model_artifact)
+            sensitivity["pit_stops"] = sensitivity["pit_stops"].astype(str) + " stop"
+            sensitivity_fig = px.line(
+                sensitivity,
+                x="grid_position",
+                y="podium_probability",
+                color="pit_stops",
+                markers=True,
+                labels={"grid_position": "Starting grid", "podium_probability": "Podium probability (%)", "pit_stops": "Plan"},
+                title=f"{driver}: podium probability by starting grid",
+            )
+            sensitivity_fig.update_yaxes(range=[0, 100])
+            sensitivity_fig.update_layout(height=360, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+            st.plotly_chart(sensitivity_fig, use_container_width=True)
 
 with tab_strategy:
     st.subheader("Strategy Lab")
@@ -233,6 +252,28 @@ with tab_strategy:
             fig = px.line(breakdown, x="lap_offset", y="cumulative_delta", markers=True, title="Cumulative undercut gain")
             fig.add_hline(y=gap, line_dash="dash", annotation_text="Initial gap")
             st.plotly_chart(fig, use_container_width=True)
+        st.markdown("#### Strategy robustness map")
+        st.caption("Positive cells indicate a modeled undercut gain; negative cells favor extending the stint. Values are net seconds after the modeled undercut window.")
+        robustness = build_strategy_robustness_grid(
+            gap_values=[round(value, 1) for value in np.arange(0.5, 4.1, 0.5)],
+            tire_ages=range(10, 41, 5),
+            chaser_pit_lap=int(chaser_lap),
+            leader_pit_lap=int(leader_lap),
+            chaser_compound=compound,
+        )
+        robustness_fig = px.density_heatmap(
+            robustness,
+            x="gap_before_pit_sec",
+            y="leader_tire_age_laps",
+            z="net_margin_sec",
+            histfunc="avg",
+            text_auto=".1f",
+            color_continuous_scale=["#2563EB", "#111827", "#DC2626"],
+            labels={"gap_before_pit_sec": "Gap before pit (s)", "leader_tire_age_laps": "Leader tire age (laps)", "net_margin_sec": "Net margin (s)"},
+            title="Undercut decision surface",
+        )
+        robustness_fig.update_layout(height=420, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+        st.plotly_chart(robustness_fig, use_container_width=True)
 
 with tab_history:
     st.subheader("Historical performance and pace")
@@ -247,6 +288,42 @@ with tab_history:
     chart = os.path.join(OUTPUTS_DIR, "car_development_pace_gap.png")
     if os.path.exists(chart):
         st.image(chart, caption="Historical qualifying pace and race-day position delta")
+    if not telemetry.empty:
+        st.markdown("#### Tire-stint pace intelligence")
+        st.caption("Median lap pace by tire age with an interquartile band in the underlying bundled derived telemetry. Use the degradation table to compare stint-level pace loss.")
+        telemetry_drivers = ["All drivers"] + sorted(telemetry["driver_code"].dropna().astype(str).str.upper().unique().tolist())
+        telemetry_compounds = sorted(telemetry["compound"].dropna().astype(str).str.upper().unique().tolist())
+        t1, t2 = st.columns([1, 2])
+        with t1:
+            selected_driver = st.selectbox("Driver code", telemetry_drivers, key="telemetry-driver")
+            selected_compounds = st.multiselect("Compounds", telemetry_compounds, default=telemetry_compounds, key="telemetry-compounds")
+        with t2:
+            curve = build_degradation_curve(telemetry, selected_driver, selected_compounds)
+            if curve.empty:
+                st.info("No telemetry rows match the selected filters.")
+            else:
+                curve_fig = px.line(
+                    curve,
+                    x="tire_age_laps",
+                    y="median_lap_time_sec",
+                    color="compound",
+                    markers=True,
+                    labels={"tire_age_laps": "Tire age (laps)", "median_lap_time_sec": "Median lap time (s)", "compound": "Compound"},
+                    title="Lap pace versus tire age",
+                )
+                curve_fig.update_layout(height=390, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+                st.plotly_chart(curve_fig, use_container_width=True)
+        stint_summary = build_stint_pace_summary(telemetry)
+        if selected_driver != "All drivers":
+            stint_summary = stint_summary[stint_summary["driver_code"] == selected_driver]
+        if selected_compounds:
+            stint_summary = stint_summary[stint_summary["compound"].isin(selected_compounds)]
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Stints analyzed", f"{len(stint_summary):,}")
+        m2.metric("Median pace loss / 10 laps", f"{stint_summary['pace_loss_per_10_laps_sec'].median():.2f}s" if not stint_summary.empty else "—")
+        m3.metric("Fastest median compound", stint_summary.groupby("compound")["median_lap_time_sec"].median().idxmin() if not stint_summary.empty else "—")
+        display_stints = ["season", "round", "driver_code", "stint", "compound", "stint_laps", "pace_loss_per_10_laps_sec", "median_lap_time_sec"]
+        st.dataframe(stint_summary[display_stints].sort_values("pace_loss_per_10_laps_sec").head(20), use_container_width=True, hide_index=True)
 
 with tab_quality:
     st.subheader("Data quality and provenance")
