@@ -8,8 +8,12 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Contributors](https://img.shields.io/github/contributors/DhyeyTeraiya/f1-race-intelligence-analytics?style=for-the-badge)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/graphs/contributors)
+[![Issues](https://img.shields.io/github/issues/DhyeyTeraiya/f1-race-intelligence-analytics?style=for-the-badge)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/issues)
 
 **[View the repository](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)**
+
+**[Contribute](CONTRIBUTING.md)** · **[Meet the contributors](CONTRIBUTORS.md)** · **[Join discussions](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/discussions)**
 
 </div>
 
@@ -223,6 +227,18 @@ GitHub Actions runs the Python test suite on pushes and pull requests to `main`.
 - Add a production database and observability metrics
 - Support a paid official or commercial timing feed for uninterrupted race-day SLA
 
+## Open-source project
+
+This project is public under the [MIT License](LICENSE), and contributions are welcome through issues, discussions, and pull requests. The project uses a maintainer-reviewed workflow so that community contributions stay focused, reproducible, and safe:
+
+- Start with the [contribution guide](CONTRIBUTING.md) and look for `good first issue` or `help wanted` labels.
+- Use the issue templates for bugs and feature proposals; use Discussions for questions and roadmap ideas.
+- Every change runs through GitHub Actions CI before review.
+- Public authorship remains linked to each contributor's GitHub profile.
+- Contributors may opt in to the public [contributor directory](CONTRIBUTORS.md) with their preferred profile link.
+
+This is an independent open-source analytics project and is not affiliated with Formula 1, FIA, or any racing team.
+
 ## Author
 
 **Dhyey Teraiya** — Data Scientist & ML Engineer
@@ -237,10 +253,11 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Contributing
 
-This is a public open-source project and contributions are welcome. You can report bugs, propose analytics features, improve the live-data adapters, add tests, or submit pull requests that solve open issues.
+This is a public open-source project and contributions are welcome, while all changes remain subject to maintainer review. You can report bugs, propose analytics features, improve the live-data adapters, add tests, or submit pull requests that solve open issues.
 
 - Read the [contribution guide](CONTRIBUTING.md).
 - Use the [bug report](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/issues/new?template=bug_report.md) or [feature request](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/issues/new?template=feature_request.md) template.
 - Search existing issues before opening a duplicate.
 - Keep changes focused, cite data sources, and run the test suite before submitting a pull request.
 - Maintainers review issues and merge accepted solutions after CI and code review pass.
+- If you want your contribution profile shown on the project page, add it voluntarily to [CONTRIBUTORS.md](CONTRIBUTORS.md); GitHub's contributor graph is public automatically.

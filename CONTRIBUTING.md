@@ -1,6 +1,13 @@
 # Contributing to F1 Race Intelligence
 
-Thank you for helping improve this project. Contributions are welcome through **issues**, **pull requests**, data-quality reports, modeling improvements, documentation, and dashboard enhancements.
+Thank you for helping improve this project. Contributions are welcome through **issues**, **pull requests**, data-quality reports, modeling improvements, documentation, and dashboard enhancements. You do not need to be an F1 expert to contribute: clear bug reports, tests, documentation fixes, and reproducible analysis are valuable.
+
+## Before you start
+
+- Check the existing issues and discussions before opening a duplicate.
+- For a substantial feature or model change, open an issue first so the approach can be discussed.
+- Never commit API keys, credentials, personal data, or data that you do not have permission to redistribute.
+- Review the [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
 
 ## Contribution flow
 
@@ -17,6 +24,8 @@ Thank you for helping improve this project. Contributions are welcome through **
 5. Open a pull request using the pull-request template.
 6. Explain the data source, assumptions, model impact, and limitations.
 7. Respond to review feedback; maintainers merge changes after CI and review pass.
+
+Contributors keep authorship of their work. Accepted public issues and pull requests are linked to the contributor's GitHub profile, and contributors may optionally add a public profile link to [CONTRIBUTORS.md](CONTRIBUTORS.md). Maintainers review and merge contributions; opening a pull request does not guarantee acceptance.
 
 ## Good contribution areas
 
@@ -41,6 +50,10 @@ Thank you for helping improve this project. Contributions are welcome through **
 
 Use a clear title and include reproducible steps, logs, expected behavior, and the data source involved. Issues labeled `good first issue` are suitable for newcomers; issues labeled `help wanted` are open for community implementation.
 
+## Getting recognized
+
+If your contribution is accepted, GitHub will show it in the repository's contributor graph. To be listed in the project's public contributor directory, add your preferred name, contribution area, and profile URL to `CONTRIBUTORS.md` in the same pull request or in a follow-up pull request. This listing is opt-in.
+
 ## Code of conduct
 
-Be respectful, constructive, and specific. Harassment, discrimination, spam, and intentionally misleading data claims are not welcome.
+Please follow the full [Code of Conduct](CODE_OF_CONDUCT.md). Be respectful, constructive, and specific. Harassment, discrimination, spam, and intentionally misleading data claims are not welcome.

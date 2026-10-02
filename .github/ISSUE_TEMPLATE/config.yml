@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and project discussions
+    url: https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/discussions
+    about: Ask questions, share analysis ideas, or discuss the roadmap.
+  - name: Security vulnerability
+    url: mailto:dhyeyteraiya@gmail.com
+    about: Please report security issues privately by email, not in a public issue.
