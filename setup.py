@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="f1-race-intelligence-analytics",
-    version="1.0.1",
+    version="2.0.0",
     author="Dhyey Teraiya",
     author_email="dhyeyteraiya@gmail.com",
     description="Formula 1 Race Intelligence, Strategy Undercut Simulator & Predictive Modeling Platform",

@@ -9,3 +9,7 @@ dist/
 build/
 .env
 data/f1db/
+
+# Runtime cache
+data/cache/
+__pycache__/

@@ -1,349 +1,221 @@
-"""
-Formula 1 Race Intelligence & Strategy Predictive Analytics Dashboard
-Built with Real Official FIA Formula 1 World Championship Data (2021-2026).
-Author: Dhyey Teraiya (Data Scientist)
-"""
+"""F1 Race Intelligence dashboard with live Jolpica data and cached fallback."""
+from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime
+
 import joblib
 import pandas as pd
-import numpy as np
-import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
 OUTPUTS_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
 sys.path.append(SRC_DIR)
+from live_data import load_live_season  # noqa: E402
+from strategy_simulator import StrategySimulator  # noqa: E402
 
-from strategy_simulator import StrategySimulator
-
-st.set_page_config(
-    page_title="F1 Race Intelligence & Strategy AI (Official 2021-2026 Data)",
-    page_icon="🏎️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Custom Styling
+st.set_page_config(page_title="F1 Race Intelligence", page_icon="🏎️", layout="wide")
 st.markdown("""
 <style>
-    .main {
-        background-color: #0E1117;
-        color: #FAFAFA;
-    }
-    .f1-header {
-        font-family: 'Arial Black', sans-serif;
-        color: #E10600;
-        font-size: 2.2rem;
-        margin-bottom: 0px;
-    }
-    .f1-sub {
-        font-size: 1.05rem;
-        color: #A0AEC0;
-        margin-top: 0px;
-        margin-bottom: 20px;
-    }
-    .metric-card {
-        background: #161B22;
-        border: 1px solid #30363D;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-        margin-bottom: 12px;
-    }
-    .metric-value {
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: #E10600;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #8B949E;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
+.main { background: #0E1117; color: #FAFAFA; }
+.f1-header { color: #E10600; font-size: 2.2rem; font-weight: 800; margin-bottom: 0; }
+.f1-sub { color: #A0AEC0; margin: 0 0 18px 0; }
+.metric-card { background: #161B22; border: 1px solid #30363D; border-radius: 8px; padding: 12px; text-align: center; }
+.metric-value { color: #E10600; font-size: 1.7rem; font-weight: 800; }
+.metric-label { color: #8B949E; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
 </style>
 """, unsafe_allow_html=True)
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_live_data(force_refresh: bool = False):
+    return load_live_season("current", force_refresh=force_refresh)
+
+
 @st.cache_data
-def load_data():
-    races_file = os.path.join(DATA_DIR, "f1_races.csv")
-    telemetry_file = os.path.join(DATA_DIR, "f1_lap_telemetry.csv")
-    df_races = pd.read_csv(races_file, encoding="utf-8") if os.path.exists(races_file) else pd.DataFrame()
-    df_telemetry = pd.read_csv(telemetry_file, encoding="utf-8") if os.path.exists(telemetry_file) else pd.DataFrame()
-    return df_races, df_telemetry
+def get_bundle_data():
+    races = pd.read_csv(os.path.join(DATA_DIR, "f1_races.csv"))
+    telemetry_path = os.path.join(DATA_DIR, "f1_lap_telemetry.csv")
+    telemetry = pd.read_csv(telemetry_path) if os.path.exists(telemetry_path) else pd.DataFrame()
+    return races, telemetry
 
 
 @st.cache_resource
 def load_ml_model():
-    model_file = os.path.join(OUTPUTS_DIR, "podium_model.joblib")
-    if os.path.exists(model_file):
-        return joblib.load(model_file)
-    return None
+    path = os.path.join(OUTPUTS_DIR, "podium_model.joblib")
+    return joblib.load(path) if os.path.exists(path) else None
 
 
-df_races, df_telemetry = load_data()
+with st.sidebar:
+    st.header("Data controls")
+    force_refresh = st.button("Refresh live data now", type="primary")
+    st.caption("Live results and standings use the Jolpica F1 API. Cached responses are used if the API is temporarily unavailable.")
+
+try:
+    live = get_live_data(force_refresh)
+    live_results = live["results"]
+    live_drivers = live["drivers"]
+    live_constructors = live["constructors"]
+    schedule = live["schedule"]
+    metadata = live["metadata"]
+    live_ok = not live_results.empty
+except Exception as exc:
+    live = None
+    live_results = pd.DataFrame()
+    live_drivers = pd.DataFrame()
+    live_constructors = pd.DataFrame()
+    schedule = pd.DataFrame()
+    metadata = {"source": "Bundled repository snapshot", "error": str(exc)}
+    live_ok = False
+
+bundle_races, telemetry = get_bundle_data()
+df_races = bundle_races.copy()
+if live_ok:
+    current_season = int(live_results["season"].max())
+    df_races = pd.concat([bundle_races[bundle_races["season"] != current_season], live_results], ignore_index=True)
+else:
+    current_season = int(df_races["season"].max()) if not df_races.empty else datetime.now().year
+
 model_artifact = load_ml_model()
+st.markdown('<div class="f1-header">🏎️ F1 RACE INTELLIGENCE & PREDICTIVE ANALYTICS</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="f1-sub">Live championship intelligence • {current_season} season • historical model window 2021–{current_season}</div>', unsafe_allow_html=True)
 
-# Header
-st.markdown('<div class="f1-header">🏎️ FORMULA 1 RACE INTELLIGENCE & PREDICTIVE ANALYTICS</div>', unsafe_allow_html=True)
-st.markdown('<div class="f1-sub">Official FIA Formula 1 Data Science Engine & Strategy AI (2021–2026 World Championship Seasons)</div>', unsafe_allow_html=True)
+latest_date = pd.to_datetime(live_results.get("race_date"), errors="coerce").max() if live_ok else None
+latest_date_text = latest_date.strftime("%d %b %Y") if pd.notna(latest_date) else "Bundled snapshot"
+latest_race = live_results.iloc[-1]["race_name"] if live_ok and not live_results.empty else "Historical dataset"
+metrics = [
+    (f"{len(df_races):,}", "Race entries"),
+    (str(current_season), "Live season"),
+    (str(live_results["round"].nunique()) if live_ok else "—", "Rounds loaded"),
+    (latest_date_text, "Latest result"),
+    ("Jolpica" if live_ok else "Fallback", "Data source"),
+]
+cols = st.columns(5)
+for col, (value, label) in zip(cols, metrics):
+    with col:
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{value}</div><div class="metric-label">{label}</div></div>', unsafe_allow_html=True)
+st.caption(f"{latest_race} • {metadata.get('source', 'Unknown source')} • cache TTL: 30 minutes")
+if not live_ok:
+    st.warning("Live API data was not available. The dashboard is showing the versioned repository snapshot instead.")
 
-# Top KPI Metrics Row
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1:
-    st.markdown('<div class="metric-card"><div class="metric-value">2,565</div><div class="metric-label">Official Race Entries</div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown('<div class="metric-card"><div class="metric-value">91.12%</div><div class="metric-label">Model Accuracy (2025-26)</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown('<div class="metric-card"><div class="metric-value">0.948</div><div class="metric-label">ROC-AUC Test Score</div></div>', unsafe_allow_html=True)
-with c4:
-    st.markdown('<div class="metric-card"><div class="metric-value">6 Seasons</div><div class="metric-label">2021 to 2026 Era</div></div>', unsafe_allow_html=True)
-with c5:
-    st.markdown('<div class="metric-card"><div class="metric-value">0.21s</div><div class="metric-label">Tire Regressor MAE</div></div>', unsafe_allow_html=True)
-
-# Navigation Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🏁 Predictive Podium AI (2025-2026)",
-    "🏆 Driver & Team Dominance Shift",
-    "🏎️ Car Development & Pace Index",
-    "⏱️ Tactical Pit Stop Undercut Simulator",
-    "📊 Official Benchmarks & Telemetry"
+tab_live, tab_predict, tab_strategy, tab_history, tab_quality = st.tabs([
+    "🟢 Live Championship", "🎯 Podium Prediction", "⏱️ Strategy Lab", "📈 Historical Analytics", "🔬 Data Quality"
 ])
 
-# ==========================================
-# TAB 1: PREDICTIVE PODIUM AI
-# ==========================================
-with tab1:
-    st.subheader("🎯 Real-Time Grand Prix Outcome Predictor")
-    st.write("Simulate race outcomes on real Formula 1 circuits using models trained on 2021–2024 and validated on 2025–2026 championship data.")
+with tab_live:
+    st.subheader(f"{current_season} live championship monitor")
+    left, right = st.columns(2)
+    with left:
+        st.markdown("#### Drivers")
+        if not live_drivers.empty:
+            st.dataframe(live_drivers.head(20), use_container_width=True, hide_index=True)
+        else:
+            st.info("No live standings returned.")
+    with right:
+        st.markdown("#### Constructors")
+        if not live_constructors.empty:
+            st.dataframe(live_constructors.head(10), use_container_width=True, hide_index=True)
+        else:
+            st.info("No live constructor standings returned.")
+    st.markdown("#### Latest race results")
+    if live_ok and not live_results.empty:
+        race_options = live_results[["round", "race_name"]].drop_duplicates().sort_values("round")
+        selected_race = st.selectbox("Race", race_options["race_name"].tolist(), index=len(race_options) - 1)
+        st.dataframe(live_results[live_results["race_name"] == selected_race][["finish_position", "driver_name", "constructor", "grid_position", "points", "status"]].sort_values("finish_position"), use_container_width=True, hide_index=True)
+    if not schedule.empty:
+        st.markdown("#### Season schedule")
+        st.dataframe(schedule, use_container_width=True, hide_index=True)
 
-    colA, colB = st.columns([1, 2])
+with tab_predict:
+    st.subheader("Data-driven podium probability")
+    st.write("The production model uses the repository's historical feature set; driver form and team strength are refreshed from the latest available results.")
+    if df_races.empty or model_artifact is None:
+        st.error("Prediction assets are unavailable.")
+    else:
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            circuits = sorted(df_races["circuit_name"].dropna().unique())
+            drivers = sorted(df_races["driver_name"].dropna().unique())
+            circuit = st.selectbox("Circuit", circuits, index=0)
+            default_driver = "Max Verstappen" if "Max Verstappen" in drivers else drivers[0]
+            driver = st.selectbox("Driver", drivers, index=drivers.index(default_driver))
+            grid = st.slider("Starting grid", 1, 22, 2)
+            stops = st.slider("Planned pit stops", 1, 3, 1)
+        with c2:
+            driver_rows = df_races[df_races["driver_name"] == driver].sort_values(["season", "round"])
+            circuit_rows = df_races[df_races["circuit_name"] == circuit]
+            row = driver_rows.iloc[-1] if not driver_rows.empty else df_races.iloc[-1]
+            circuit_row = circuit_rows.iloc[-1] if not circuit_rows.empty else df_races.iloc[-1]
+            team = row.get("constructor", "Unknown")
+            team_rows = df_races[df_races["constructor"] == team].sort_values(["season", "round"])
+            team_points = float(team_rows["points"].tail(8).sum()) if not team_rows.empty else 0.0
+            input_df = pd.DataFrame([{
+                "grid_position": grid,
+                "overtake_difficulty": int(circuit_row.get("overtake_difficulty", 2)),
+                "is_street_circuit": int(circuit_row.get("is_street_circuit", 0)),
+                "team_tier": 1 if team_points >= 50 else 2 if team_points >= 25 else 3,
+                "driver_rolling_points": float(driver_rows["points"].tail(4).mean()) if not driver_rows.empty else 0,
+                "driver_rolling_finish": float(driver_rows["finish_position"].tail(4).mean()) if not driver_rows.empty else 12,
+                "team_rolling_pts": team_points,
+                "grid_circuit_difficulty_interaction": grid * int(circuit_row.get("overtake_difficulty", 2)),
+                "is_front_row": int(grid <= 2), "is_top_5_grid": int(grid <= 5), "is_top_10_grid": int(grid <= 10), "pit_stops_count": stops,
+            }])
+            features = model_artifact["features"]
+            probability = float(model_artifact["pipeline"].predict_proba(input_df[features])[0][1] * 100)
+            fig = go.Figure(go.Indicator(mode="gauge+number", value=probability, number={"suffix": "%"}, title={"text": f"{driver} podium probability"}, gauge={"axis": {"range": [0, 100]}, "bar": {"color": "#E10600"}}))
+            fig.update_layout(height=300, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+            st.plotly_chart(fig, use_container_width=True)
+            st.info(f"{driver} / {team} • recent average finish: {input_df.loc[0, 'driver_rolling_finish']:.1f} • recent team points: {team_points:.1f}")
 
-    with colA:
-        circuits_list = sorted(df_races["circuit_name"].dropna().unique()) if not df_races.empty else ["Silverstone"]
-        circuit_selected = st.selectbox("Select Grand Prix Circuit", options=circuits_list, index=0)
+with tab_strategy:
+    st.subheader("Strategy Lab")
+    a, b = st.columns([1, 2])
+    with a:
+        gap = st.slider("Gap before pit (s)", 0.5, 5.0, 1.8, 0.1)
+        chaser_lap = st.number_input("Chaser pit lap", 10, 70, 22)
+        leader_lap = st.number_input("Leader pit lap", 11, 70, 24)
+        compound = st.selectbox("Fresh compound", ["SOFT", "MEDIUM", "HARD"], index=2)
+        old_laps = st.slider("Leader tire age", 10, 45, 24)
+    with b:
+        result = StrategySimulator().simulate_undercut(gap, chaser_lap, leader_lap, compound, laps_on_leader_tire=old_laps)
+        if result.get("success"):
+            st.success(f"EXECUTE UNDERCUT • net margin +{result['net_margin_sec']}s")
+        else:
+            st.warning(f"DEFEND / EXTEND • net margin {result.get('net_margin_sec', 0)}s")
+        if result.get("lap_breakdown"):
+            breakdown = pd.DataFrame(result["lap_breakdown"])
+            fig = px.line(breakdown, x="lap_offset", y="cumulative_delta", markers=True, title="Cumulative undercut gain")
+            fig.add_hline(y=gap, line_dash="dash", annotation_text="Initial gap")
+            st.plotly_chart(fig, use_container_width=True)
 
-        drivers_list = sorted(df_races["driver_name"].dropna().unique()) if not df_races.empty else ["Max Verstappen"]
-        driver_selected = st.selectbox("Select Driver", options=drivers_list, index=drivers_list.index("Max Verstappen") if "Max Verstappen" in drivers_list else 0)
-
-        grid_pos = st.slider("Starting Grid Position", min_value=1, max_value=20, value=2)
-        pit_stops = st.slider("Planned Pit Stops Count", min_value=1, max_value=3, value=1)
-
-    with colB:
-        if model_artifact and not df_races.empty:
-            driver_rows = df_races[df_races["driver_name"] == driver_selected]
-            circuit_rows = df_races[df_races["circuit_name"] == circuit_selected]
-
-            driver_info = driver_rows.iloc[-1] if not driver_rows.empty else df_races.iloc[0]
-            circuit_info = circuit_rows.iloc[0] if not circuit_rows.empty else df_races.iloc[0]
-
-            is_street = int(circuit_info["is_street_circuit"])
-            overtake_diff = int(circuit_info["overtake_difficulty"])
-
-            driver_avg_pts = float(driver_rows["points"].tail(4).mean()) if not driver_rows.empty else 8.0
-            driver_avg_fin = float(driver_rows["finish_position"].tail(4).mean()) if not driver_rows.empty else 7.0
-
-            team_name = driver_info["constructor"]
-            team_rows = df_races[df_races["constructor"] == team_name]
-            team_pts = float(team_rows["points"].tail(8).sum()) if not team_rows.empty else 25.0
-
-            if team_pts >= 50.0:
-                team_tier = 1
-            elif team_pts >= 25.0:
-                team_tier = 2
-            elif team_pts >= 10.0:
-                team_tier = 3
-            else:
-                team_tier = 4
-
-            input_dict = {
-                "grid_position": [grid_pos],
-                "overtake_difficulty": [overtake_diff],
-                "is_street_circuit": [is_street],
-                "team_tier": [team_tier],
-                "driver_rolling_points": [driver_avg_pts],
-                "driver_rolling_finish": [driver_avg_fin],
-                "team_rolling_pts": [team_pts],
-                "grid_circuit_difficulty_interaction": [grid_pos * overtake_diff],
-                "is_front_row": [1 if grid_pos <= 2 else 0],
-                "is_top_5_grid": [1 if grid_pos <= 5 else 0],
-                "is_top_10_grid": [1 if grid_pos <= 10 else 0],
-                "pit_stops_count": [pit_stops]
-            }
-
-            input_df = pd.DataFrame(input_dict)
-            pipeline = model_artifact["pipeline"]
-            podium_prob = pipeline.predict_proba(input_df)[0][1] * 100
-            pred_podium = pipeline.predict(input_df)[0]
-
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=podium_prob,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': f"Podium Finish Probability (Top 3)", 'font': {'size': 20, 'color': '#FAFAFA'}},
-                number={'suffix': "%", 'font': {'color': '#E10600', 'size': 36}},
-                gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#30363D"},
-                    'bar': {'color': "#E10600"},
-                    'bgcolor': "#161B22",
-                    'borderwidth': 2,
-                    'bordercolor': "#30363D",
-                    'steps': [
-                        {'range': [0, 35], 'color': "#1F2937"},
-                        {'range': [35, 70], 'color': "#374151"},
-                        {'range': [70, 100], 'color': "#4B5563"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "#00D2BE", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 50
-                    }
-                }
-            ))
-            fig_gauge.update_layout(height=280, margin=dict(l=20, r=20, t=50, b=20), paper_bgcolor="#0E1117")
-            st.plotly_chart(fig_gauge, use_container_width=True)
-
-            if pred_podium == 1:
-                st.success(f"🏆 **Prediction**: **{driver_selected}** ({team_name}) starting from **P{grid_pos}** has a high likelihood of securing a **Podium Finish** at {circuit_selected} ({podium_prob:.1f}% probability).")
-            else:
-                st.warning(f"⚠️ **Prediction**: **{driver_selected}** ({team_name}) starting from **P{grid_pos}** is projected outside the podium places ({podium_prob:.1f}% probability).")
-
-
-# ==========================================
-# TAB 2: DRIVER & TEAM DOMINANCE SHIFT
-# ==========================================
-with tab2:
-    st.subheader("🏆 Driver & Constructor Championship Shift (2021–2026)")
-    st.write("Examine the real shift in championship dominance across drivers and teams over 6 official seasons.")
-
+with tab_history:
+    st.subheader("Historical performance and pace")
     d1, d2 = st.columns(2)
     with d1:
-        img_dw = os.path.join(OUTPUTS_DIR, "driver_wins_podiums_evolution.png")
-        if os.path.exists(img_dw):
-            st.image(img_dw, caption="Total Grand Prix Victories and Podiums by Driver (2021-2026)", use_container_width=True)
-
+        summary = df_races.groupby("driver_name").agg(Starts=("race_id", "count"), Wins=("race_winner", "sum"), Podiums=("podium_finish", "sum"), Points=("points", "sum"), Avg_Finish=("finish_position", "mean")).sort_values("Points", ascending=False).head(15)
+        st.dataframe(summary.style.format({"Points": "{:.1f}", "Avg_Finish": "{:.1f}"}), use_container_width=True)
     with d2:
-        img_cd = os.path.join(OUTPUTS_DIR, "constructor_dominance_shift.png")
-        if os.path.exists(img_cd):
-            st.image(img_cd, caption="Constructor Championship Points & Win Share Evolution", use_container_width=True)
+        season_team = df_races.groupby(["season", "constructor"], as_index=False)["points"].sum()
+        fig = px.line(season_team, x="season", y="points", color="constructor", markers=True, title="Constructor points trajectory")
+        st.plotly_chart(fig, use_container_width=True)
+    chart = os.path.join(OUTPUTS_DIR, "car_development_pace_gap.png")
+    if os.path.exists(chart):
+        st.image(chart, caption="Historical qualifying pace and race-day position delta")
 
-    # Interactive Season Table
-    st.markdown("#### 📋 Real Driver Standings Summary")
-    driver_summary = df_races.groupby("driver_name").agg(
-        Starts=("race_id", "count"),
-        Wins=("race_winner", "sum"),
-        Podiums=("podium_finish", "sum"),
-        Total_Points=("points", "sum"),
-        Avg_Finish=("finish_position", "mean")
-    ).sort_values(by="Total_Points", ascending=False).head(12)
-
-    st.dataframe(driver_summary.style.format({"Avg_Finish": "{:.1f}", "Total_Points": "{:.1f}"}), use_container_width=True)
-
-
-# ==========================================
-# TAB 3: CAR DEVELOPMENT & PACE INDEX
-# ==========================================
-with tab3:
-    st.subheader("🏎️ Car Development Trajectory & Team Pace Index (2021–2026)")
-    st.write("Evaluating which team developed the faster car across the seasons using qualifying grid ranks and race finish deltas.")
-
-    p1, p2 = st.columns(2)
-    with p1:
-        img_car = os.path.join(OUTPUTS_DIR, "car_development_pace_gap.png")
-        if os.path.exists(img_car):
-            st.image(img_car, caption="Car Development Trajectory: Qualifying Pace & Race Delta (2021-2026)", use_container_width=True)
-
-    with p2:
-        img_prof = os.path.join(OUTPUTS_DIR, "driver_performance_profile.png")
-        if os.path.exists(img_prof):
-            st.image(img_prof, caption="Driver Race Craft Efficiency: Qualifying vs. Race Day Gains (2021-2026)", use_container_width=True)
-
-    st.markdown("#### 🔬 Engineering Insights: Who Developed the Superior Car?")
-    c_m1, c_m2, c_m3 = st.columns(3)
-    with c_m1:
-        st.info("🟠 **McLaren's Development Surge (2024–2025)**\n\nMcLaren made the steepest technical climb in modern F1 history, progressing from an average grid position of P9.7 in 2022 to P3.0 in 2025, taking 14 wins and the 2024-2025 Constructors' crown.")
-    with c_m2:
-        st.info("🔵 **Red Bull Plateau (2022–2023 Peak)**\n\nRed Bull dominated 2022 and 2023 with aerodynamic superiority (average grid P4.2), but hit aerodynamic development diminishing returns as rivals closed the pace gap in 2024–2025.")
-    with c_m3:
-        st.info("⚪ **Mercedes & Ferrari Era Resilience (2026)**\n\nMercedes capitalized on the 2026 power unit and aerodynamic revisions with Kimi Antonelli and George Russell, reclaiming regular front-row lockouts and Grand Prix victories.")
-
-
-# ==========================================
-# TAB 4: UNDERCUT STRATEGY SIMULATOR
-# ==========================================
-with tab4:
-    st.subheader("⏱️ Tactical Pit Stop Undercut & Overcut Engine")
-    st.write("Simulate strategic pit stop timing based on real pit lane deltas and fresh tire compound pace advantages.")
-
-    sim_col1, sim_col2 = st.columns([1, 2])
-
-    with sim_col1:
-        gap_sec = st.slider("Gap to Leading Car before Pit Stop (seconds)", min_value=0.5, max_value=4.5, value=1.8, step=0.1)
-        chaser_lap = st.number_input("Chaser Pit Stop Lap", min_value=10, max_value=50, value=22)
-        leader_lap = st.number_input("Leader Reaction Pit Stop Lap", min_value=11, max_value=55, value=24)
-        chaser_comp = st.selectbox("Chaser Fresh Tire Compound", options=["SOFT", "MEDIUM", "HARD"], index=2)
-        leader_old_laps = st.slider("Laps Completed on Leader's Current Tires", min_value=15, max_value=40, value=24)
-
-    with sim_col2:
-        sim = StrategySimulator()
-        sim_res = sim.simulate_undercut(
-            gap_before_pit_sec=gap_sec,
-            chaser_pit_lap=chaser_lap,
-            leader_pit_lap=leader_lap,
-            chaser_compound=chaser_comp,
-            laps_on_leader_tire=leader_old_laps
-        )
-
-        if sim_res.get("success"):
-            st.success(f"✅ **STRATEGY RECOMMENDATION**: **{sim_res['recommendation']}**")
-            st.write(f"• **Net Track Position Margin**: +{sim_res['net_margin_sec']} seconds ahead of rival.")
-            st.write(f"• **Pace Advantage Gained over {sim_res['undercut_window_laps']} laps**: {sim_res['total_pace_gained_sec']} seconds.")
-        else:
-            st.error(f"❌ **STRATEGY RECOMMENDATION**: **{sim_res.get('recommendation', 'DEFEND')}**")
-            st.write(f"• **Deficit after Pit Stops**: {sim_res.get('net_margin_sec', -1.0)} seconds behind leader.")
-
-        if "lap_breakdown" in sim_res and sim_res["lap_breakdown"]:
-            df_breakdown = pd.DataFrame(sim_res["lap_breakdown"])
-            fig_undercut = px.bar(
-                df_breakdown,
-                x="lap_offset",
-                y="cumulative_delta",
-                title="Cumulative Delta Gained During Undercut Window",
-                labels={"lap_offset": "Laps Since Chaser Pitted", "cumulative_delta": "Seconds Gained"},
-                color_discrete_sequence=["#E10600"]
-            )
-            fig_undercut.add_hline(y=gap_sec, line_dash="dash", line_color="#00D2BE",
-                                   annotation_text=f"Initial Gap ({gap_sec}s)")
-            fig_undercut.update_layout(paper_bgcolor="#0E1117", plot_bgcolor="#161B22", font=dict(color="#FAFAFA"))
-            st.plotly_chart(fig_undercut, use_container_width=True)
-
-
-# ==========================================
-# TAB 5: OFFICIAL BENCHMARKS & TELEMETRY
-# ==========================================
-with tab5:
-    st.subheader("📊 Official Formula 1 Data Science Benchmarks & Tire Telemetry")
-
-    mb1, mb2 = st.columns(2)
-    with mb1:
-        roc_path = os.path.join(OUTPUTS_DIR, "roc_auc_curve.png")
-        if os.path.exists(roc_path):
-            st.image(roc_path, caption="Official ROC-AUC Curve Evaluated on 2025-2026 Test Races", use_container_width=True)
-
-        grid_path = os.path.join(OUTPUTS_DIR, "qualifying_to_podium_matrix.png")
-        if os.path.exists(grid_path):
-            st.image(grid_path, caption="Real F1 Historical Grid to Podium & Win Conversion", use_container_width=True)
-
-    with mb2:
-        fi_path = os.path.join(OUTPUTS_DIR, "feature_importance_podium.png")
-        if os.path.exists(fi_path):
-            st.image(fi_path, caption="Feature Importance for Real Race Podium Prediction", use_container_width=True)
-
-        deg_path = os.path.join(OUTPUTS_DIR, "tire_degradation_curves.png")
-        if os.path.exists(deg_path):
-            st.image(deg_path, caption="Tire Degradation Curves across Stints", use_container_width=True)
+with tab_quality:
+    st.subheader("Data quality and provenance")
+    duplicate_count = int(df_races.duplicated(["race_id", "driver_code"]).sum())
+    missing_grid = int(df_races["grid_position"].isna().sum())
+    quality = pd.DataFrame([
+        {"Check": "Rows loaded", "Value": f"{len(df_races):,}", "Status": "PASS" if len(df_races) else "FAIL"},
+        {"Check": "Duplicate driver-race rows", "Value": duplicate_count, "Status": "PASS" if duplicate_count == 0 else "REVIEW"},
+        {"Check": "Missing grid positions", "Value": missing_grid, "Status": "PASS" if missing_grid == 0 else "REVIEW"},
+        {"Check": "Live API rows", "Value": len(live_results), "Status": "PASS" if live_ok else "FALLBACK"},
+        {"Check": "Historical telemetry", "Value": len(telemetry), "Status": "BUNDLED DERIVED DATA"},
+    ])
+    st.dataframe(quality, use_container_width=True, hide_index=True)
+    st.markdown("**Sources:** live race results, standings, and schedule are fetched from the public [Jolpica F1 API](https://api.jolpi.ca/ergast/f1/). The repository snapshot remains available as an offline fallback. Historical lap telemetry in this repository is a derived modeling dataset and is labeled accordingly.")

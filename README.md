@@ -179,3 +179,29 @@ Explore live race predictions, driver vs. driver battles, team development traje
 ---
 
 ⭐ *If you find this project valuable for motorsport analytics or data science research, please consider giving it a star!*
+
+## 🚀 Version 2.0: Live Championship Intelligence
+
+The dashboard now includes a **live Jolpica F1 API integration** with a 30-minute disk cache and offline fallback:
+
+- Current-season race results, schedule, driver standings, and constructor standings.
+- Manual **Refresh live data now** control in the Streamlit sidebar.
+- Automatic replacement of the bundled current-season snapshot with the latest API results.
+- Data-quality panel showing row counts, duplicates, missing grids, source, and fallback state.
+- Historical driver/team analytics and model inputs refreshed from the newest available results.
+- Nested API responses normalized through `src/live_data.py`, with parser tests that run without network access.
+
+The API source is the public [Jolpica F1 API](https://api.jolpi.ca/ergast/f1/), which provides Ergast-compatible historical and current championship data. The repository's lap telemetry file is a **derived modeling dataset**, not direct official car telemetry; the dashboard labels it accordingly rather than presenting synthetic values as official telemetry.
+
+### Run the live dashboard
+
+```bash
+pip install -r requirements.txt
+streamlit run app/app.py
+```
+
+### Run validation
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -v
+```
