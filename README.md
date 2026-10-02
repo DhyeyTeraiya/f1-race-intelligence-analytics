@@ -217,3 +217,9 @@ The dashboard now has a dedicated **Live Timing** workspace. It polls OpenF1 on 
 - Automatic Streamlit refresh without restarting the process.
 
 The architecture deliberately separates two data products: **Jolpica** for championship results/standings and **OpenF1** for session timing/laps/weather/race-control data. OpenF1's documentation states that historical data is free while real-time access is a subscription feature; the app therefore degrades to cached/recent session data or Jolpica when live access is unavailable. This is a real provider boundary, not simulated timing.
+
+## 🌐 Live Demo
+
+[Open the live F1 Race Intelligence dashboard](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)
+
+The same URL is configured in the GitHub repository's **About → Website** field.
