@@ -4,13 +4,12 @@
 
 ### Real-time Formula 1 timing, championship analytics, race strategy, and podium prediction
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20Dashboard-E10600?style=for-the-badge&logo=streamlit&logoColor=white)](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)
 [![CI](https://img.shields.io/github/actions/workflow/status/DhyeyTeraiya/f1-race-intelligence-analytics/python-ci.yml?branch=main&style=for-the-badge&logo=github)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/actions)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-**[Open the live dashboard](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)** · **[View the repository](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)**
+**[View the repository](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)**
 
 </div>
 
