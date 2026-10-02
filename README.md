@@ -87,6 +87,32 @@ The Streamlit dashboard includes:
 - Live versus fallback status
 - Data-source and telemetry provenance
 
+## Historical visual analytics
+
+The dashboard combines these historical views with the live session monitor. The images below are generated from the versioned repository snapshot and should be interpreted as reproducible historical analytics, not live timing.
+
+### Driver wins and podiums
+
+![Driver wins and podiums](outputs/driver_wins_podiums_evolution.png)
+
+### Constructor dominance shift
+
+![Constructor dominance shift](outputs/constructor_dominance_shift.png)
+
+### Car development and pace gap
+
+![Car development and pace gap](outputs/car_development_pace_gap.png)
+
+### Driver race-craft profile
+
+![Driver race-craft profile](outputs/driver_performance_profile.png)
+
+### Grid conversion and model evaluation
+
+![Grid-to-podium conversion](outputs/qualifying_to_podium_matrix.png)
+
+![ROC-AUC curve](outputs/roc_auc_curve.png)
+
 ## Architecture
 
 ```mermaid
