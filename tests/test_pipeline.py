@@ -13,6 +13,7 @@ sys.path.append(SRC_DIR)
 from data_loader import load_raw_data
 from feature_engineering import get_modeling_data
 from live_data import results_to_dataframe
+from advanced_analytics import build_prediction_sensitivity, build_strategy_robustness_grid
 from strategy_simulator import StrategySimulator
 
 
@@ -63,6 +64,27 @@ class TestF1Pipeline(unittest.TestCase):
         }])
         probability = artifact["pipeline"].predict_proba(sample[artifact["features"]])[0][1]
         self.assertTrue(0.0 <= probability <= 1.0)
+
+    def test_prediction_sensitivity_grid_is_complete(self):
+        artifact = joblib.load(os.path.join(OUTPUTS_DIR, "podium_model.joblib"))
+        sample = pd.DataFrame([{
+            "grid_position": 2, "overtake_difficulty": 3, "is_street_circuit": 0, "team_tier": 1,
+            "driver_rolling_points": 20.0, "driver_rolling_finish": 1.5, "team_rolling_pts": 40.0,
+            "grid_circuit_difficulty_interaction": 6, "is_front_row": 1, "is_top_5_grid": 1,
+            "is_top_10_grid": 1, "pit_stops_count": 1,
+        }])
+        result = build_prediction_sensitivity(sample, artifact, grid_positions=[1, 5, 10], pit_stops=[1, 2])
+        self.assertEqual(len(result), 6)
+        self.assertEqual(set(result["grid_position"]), {1, 5, 10})
+        self.assertTrue(result["podium_probability"].between(0, 100).all())
+
+    def test_strategy_robustness_grid_is_complete(self):
+        result = build_strategy_robustness_grid(
+            gap_values=[1.0, 2.0], tire_ages=[10, 30], chaser_pit_lap=20, leader_pit_lap=22
+        )
+        self.assertEqual(len(result), 4)
+        self.assertTrue({"net_margin_sec", "recommendation", "success"}.issubset(result.columns))
+        self.assertTrue(result["net_margin_sec"].notna().all())
 
 
 if __name__ == "__main__":

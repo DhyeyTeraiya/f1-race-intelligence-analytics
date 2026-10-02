@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 
 import joblib
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -16,6 +17,7 @@ SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
 OUTPUTS_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
 sys.path.append(SRC_DIR)
+from advanced_analytics import build_prediction_sensitivity, build_strategy_robustness_grid  # noqa: E402
 from live_data import fetch_openf1_live, load_live_season  # noqa: E402
 from strategy_simulator import StrategySimulator  # noqa: E402
 
@@ -212,6 +214,22 @@ with tab_predict:
             fig.update_layout(height=300, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
             st.plotly_chart(fig, use_container_width=True)
             st.info(f"{driver} / {team} • recent average finish: {input_df.loc[0, 'driver_rolling_finish']:.1f} • recent team points: {team_points:.1f}")
+            st.markdown("#### Scenario sensitivity")
+            st.caption("How the same driver-and-circuit profile changes across starting-grid and pit-stop assumptions. This is a what-if analysis, not a calibrated confidence interval.")
+            sensitivity = build_prediction_sensitivity(input_df, model_artifact)
+            sensitivity["pit_stops"] = sensitivity["pit_stops"].astype(str) + " stop"
+            sensitivity_fig = px.line(
+                sensitivity,
+                x="grid_position",
+                y="podium_probability",
+                color="pit_stops",
+                markers=True,
+                labels={"grid_position": "Starting grid", "podium_probability": "Podium probability (%)", "pit_stops": "Plan"},
+                title=f"{driver}: podium probability by starting grid",
+            )
+            sensitivity_fig.update_yaxes(range=[0, 100])
+            sensitivity_fig.update_layout(height=360, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+            st.plotly_chart(sensitivity_fig, use_container_width=True)
 
 with tab_strategy:
     st.subheader("Strategy Lab")
@@ -233,6 +251,28 @@ with tab_strategy:
             fig = px.line(breakdown, x="lap_offset", y="cumulative_delta", markers=True, title="Cumulative undercut gain")
             fig.add_hline(y=gap, line_dash="dash", annotation_text="Initial gap")
             st.plotly_chart(fig, use_container_width=True)
+        st.markdown("#### Strategy robustness map")
+        st.caption("Positive cells indicate a modeled undercut gain; negative cells favor extending the stint. Values are net seconds after the modeled undercut window.")
+        robustness = build_strategy_robustness_grid(
+            gap_values=[round(value, 1) for value in np.arange(0.5, 4.1, 0.5)],
+            tire_ages=range(10, 41, 5),
+            chaser_pit_lap=int(chaser_lap),
+            leader_pit_lap=int(leader_lap),
+            chaser_compound=compound,
+        )
+        robustness_fig = px.density_heatmap(
+            robustness,
+            x="gap_before_pit_sec",
+            y="leader_tire_age_laps",
+            z="net_margin_sec",
+            histfunc="avg",
+            text_auto=".1f",
+            color_continuous_scale=["#2563EB", "#111827", "#DC2626"],
+            labels={"gap_before_pit_sec": "Gap before pit (s)", "leader_tire_age_laps": "Leader tire age (laps)", "net_margin_sec": "Net margin (s)"},
+            title="Undercut decision surface",
+        )
+        robustness_fig.update_layout(height=420, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+        st.plotly_chart(robustness_fig, use_container_width=True)
 
 with tab_history:
     st.subheader("Historical performance and pace")
