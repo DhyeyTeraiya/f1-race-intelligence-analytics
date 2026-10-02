@@ -36,8 +36,6 @@ The application is intentionally split into two data products:
 
 ## Live dashboard
 
-**[Launch F1 Race Intelligence →](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)**
-
 The Streamlit dashboard includes:
 
 ### 📡 Live Timing
