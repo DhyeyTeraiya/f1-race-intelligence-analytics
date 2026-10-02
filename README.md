@@ -80,6 +80,7 @@ The Streamlit dashboard includes:
 - Constructor points trajectory
 - Qualifying pace versus race-day position gain
 - Stored model evaluation charts
+- Interactive tire-stint pace curves and stint-level degradation summaries
 
 ### 🔬 Data Quality
 
@@ -139,6 +140,7 @@ f1-race-intelligence-analytics/
 ├── src/
 │   ├── live_data.py              # Jolpica + OpenF1 clients, caching, normalization
 │   ├── advanced_analytics.py     # Prediction sensitivity and strategy robustness grids
+│   ├── telemetry_analytics.py    # Tire-stint pace and degradation summaries
 │   ├── data_loader.py            # Historical dataset ingestion and ETL
 │   ├── feature_engineering.py    # Rolling form, team strength, grid interactions
 │   ├── models.py                 # Classification/regression training and artifacts

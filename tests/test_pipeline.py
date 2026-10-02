@@ -15,6 +15,7 @@ from feature_engineering import get_modeling_data
 from live_data import results_to_dataframe
 from advanced_analytics import build_prediction_sensitivity, build_strategy_robustness_grid
 from strategy_simulator import StrategySimulator
+from telemetry_analytics import build_degradation_curve, build_stint_pace_summary
 
 
 class TestF1Pipeline(unittest.TestCase):
@@ -85,6 +86,16 @@ class TestF1Pipeline(unittest.TestCase):
         self.assertEqual(len(result), 4)
         self.assertTrue({"net_margin_sec", "recommendation", "success"}.issubset(result.columns))
         self.assertTrue(result["net_margin_sec"].notna().all())
+
+    def test_telemetry_stint_summary_and_curve(self):
+        _, telemetry = load_raw_data()
+        summary = build_stint_pace_summary(telemetry, min_laps=5)
+        self.assertGreater(len(summary), 100)
+        self.assertTrue(summary["pace_loss_per_10_laps_sec"].notna().all())
+        curve = build_degradation_curve(telemetry, driver_code="VER", compounds=["MEDIUM"])
+        self.assertFalse(curve.empty)
+        self.assertEqual(set(curve["compound"]), {"MEDIUM"})
+        self.assertTrue(curve["tire_age_laps"].is_monotonic_increasing)
 
 
 if __name__ == "__main__":

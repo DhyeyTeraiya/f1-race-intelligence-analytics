@@ -20,6 +20,7 @@ sys.path.append(SRC_DIR)
 from advanced_analytics import build_prediction_sensitivity, build_strategy_robustness_grid  # noqa: E402
 from live_data import fetch_openf1_live, load_live_season  # noqa: E402
 from strategy_simulator import StrategySimulator  # noqa: E402
+from telemetry_analytics import build_degradation_curve, build_stint_pace_summary  # noqa: E402
 
 st.set_page_config(page_title="F1 Race Intelligence", page_icon="🏎️", layout="wide")
 st.markdown("""
@@ -287,6 +288,42 @@ with tab_history:
     chart = os.path.join(OUTPUTS_DIR, "car_development_pace_gap.png")
     if os.path.exists(chart):
         st.image(chart, caption="Historical qualifying pace and race-day position delta")
+    if not telemetry.empty:
+        st.markdown("#### Tire-stint pace intelligence")
+        st.caption("Median lap pace by tire age with an interquartile band in the underlying bundled derived telemetry. Use the degradation table to compare stint-level pace loss.")
+        telemetry_drivers = ["All drivers"] + sorted(telemetry["driver_code"].dropna().astype(str).str.upper().unique().tolist())
+        telemetry_compounds = sorted(telemetry["compound"].dropna().astype(str).str.upper().unique().tolist())
+        t1, t2 = st.columns([1, 2])
+        with t1:
+            selected_driver = st.selectbox("Driver code", telemetry_drivers, key="telemetry-driver")
+            selected_compounds = st.multiselect("Compounds", telemetry_compounds, default=telemetry_compounds, key="telemetry-compounds")
+        with t2:
+            curve = build_degradation_curve(telemetry, selected_driver, selected_compounds)
+            if curve.empty:
+                st.info("No telemetry rows match the selected filters.")
+            else:
+                curve_fig = px.line(
+                    curve,
+                    x="tire_age_laps",
+                    y="median_lap_time_sec",
+                    color="compound",
+                    markers=True,
+                    labels={"tire_age_laps": "Tire age (laps)", "median_lap_time_sec": "Median lap time (s)", "compound": "Compound"},
+                    title="Lap pace versus tire age",
+                )
+                curve_fig.update_layout(height=390, paper_bgcolor="#0E1117", font={"color": "#FAFAFA"})
+                st.plotly_chart(curve_fig, use_container_width=True)
+        stint_summary = build_stint_pace_summary(telemetry)
+        if selected_driver != "All drivers":
+            stint_summary = stint_summary[stint_summary["driver_code"] == selected_driver]
+        if selected_compounds:
+            stint_summary = stint_summary[stint_summary["compound"].isin(selected_compounds)]
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Stints analyzed", f"{len(stint_summary):,}")
+        m2.metric("Median pace loss / 10 laps", f"{stint_summary['pace_loss_per_10_laps_sec'].median():.2f}s" if not stint_summary.empty else "—")
+        m3.metric("Fastest median compound", stint_summary.groupby("compound")["median_lap_time_sec"].median().idxmin() if not stint_summary.empty else "—")
+        display_stints = ["season", "round", "driver_code", "stint", "compound", "stint_laps", "pace_loss_per_10_laps_sec", "median_lap_time_sec"]
+        st.dataframe(stint_summary[display_stints].sort_values("pace_loss_per_10_laps_sec").head(20), use_container_width=True, hide_index=True)
 
 with tab_quality:
     st.subheader("Data quality and provenance")
