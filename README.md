@@ -1,225 +1,213 @@
 <div align="center">
 
-# 🏎️ Formula 1 Race Intelligence & Strategy Predictive Analytics
+# 🏎️ F1 Race Intelligence
 
-### Official FIA Formula 1 World Championship Data Science, Telemetry & Undercut Strategy Engine
+### Real-time Formula 1 timing, championship analytics, race strategy, and podium prediction
 
-[![Real F1 Data](https://img.shields.io/badge/Data-100%25%20Real%20Official%20F1-E10600?style=for-the-badge&logo=formula1&logoColor=white)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)
-[![Seasons](https://img.shields.io/badge/Seasons-2021--2026-blue?style=for-the-badge)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20Dashboard-E10600?style=for-the-badge&logo=streamlit&logoColor=white)](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)
+[![CI](https://img.shields.io/github/actions/workflow/status/DhyeyTeraiya/f1-race-intelligence-analytics/python-ci.yml?branch=main&style=for-the-badge&logo=github)](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics/actions)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Pandas](https://img.shields.io/badge/Pandas-2.0%2B-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+**[Open the live dashboard](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)** · **[View the repository](https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics)**
 
 </div>
 
 ---
 
-## 📌 Executive Summary
+## What this project does
 
-This platform is built on **100% authentic, official Formula 1 historical and contemporary World Championship data (2021 through 2026)** — featuring official Grand Prix race results, starting grid positions, real qualifying deltas, pit stop durations, and championship standings from the FIA database.
+F1 Race Intelligence is a production-style motorsport analytics application that combines historical modeling with live session monitoring. It is designed to answer questions such as:
 
-Covering **2,565 official race entries across 6 championship seasons (including 2024, 2025, and 2026)** and 25+ global circuits, this platform provides deep comparative analysis and predictive race intelligence:
-1. **Driver & Constructor Dominance Analysis**: Quantifying win distributions, podium counts, and championship point shifts from Red Bull to McLaren and Mercedes.
-2. **Car Development & Pace Gap Trajectory**: Profiling team aerodynamic/engine performance curves across the seasons (who has the faster car on qualifying pace).
-3. **Supervised Podium Classification**: Models trained on **2021–2024 (1,799 races)** and tested on out-of-time data from **2025 and 2026 (766 races)**, achieving **91.12% accuracy** and **0.9483 ROC-AUC**.
-4. **Tactical Pit Stop Undercut Simulator**: Algorithmic timing engine calculating pit lane loss deltas and fresh compound pace advantages to execute strategic overtakes.
-5. **Interactive Streamlit Dashboard**: 5-tab web dashboard for real-time race simulations, telemetry degradation, and teammate battles.
+- Who is currently fastest, and how large is the gap?
+- Which teams are improving across a season?
+- How does a driver's recent form affect podium probability?
+- Is an undercut strategically viable given the gap and tire age?
+- What are race control, weather, and session conditions saying right now?
 
----
+The application is intentionally split into two data products:
 
-## 🏆 Key Machine Learning Benchmarks (2025–2026 Holdout Test)
+| Product | Provider | Purpose | Refresh behavior |
+|---|---|---|---|
+| **Championship intelligence** | [Jolpica F1 API](https://api.jolpi.ca/ergast/f1/) | Results, standings, schedule, historical race records | Cached for 30 minutes; manual refresh available |
+| **Live session intelligence** | [OpenF1 API](https://openf1.org/docs/) | Session identity, timing, laps, sectors, weather, race control | Auto-refreshes every 10–60 seconds |
 
-Chronological split: **2021–2024 (1,799 entries)** for model training and **2025–2026 (766 entries)** for holdout testing.
+> **Data honesty:** OpenF1 documents historical access as free and real-time access as a subscription feature. When live access is unavailable, the app shows the latest cached/recent session data or falls back to Jolpica. The repository does not present simulated lap telemetry as official live timing.
 
-| Model Architecture | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Status |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Random Forest Classifier** | **91.12%** | **70.87%** | **65.77%** | **0.6822** | **0.9483** | 🥇 **Primary Production Model** |
-| **Logistic Regression (Baseline)** | 91.25% | 72.92% | 63.06% | 0.6763 | 0.9455 | 🥈 Strong Benchmark |
-| **Gradient Boosting Classifier** | 90.34% | 68.69% | 61.26% | 0.6476 | 0.9449 | 🥉 Competitive |
-| **Tire Lap Time Regressor (RF)** | — | — | — | **$R^2 = 0.7636$** | **MAE = $0.218\text{s}$** | 🔧 Stint Regressor |
+## Live dashboard
 
----
+**[Launch F1 Race Intelligence →](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)**
 
-## 📊 Comprehensive Visual Analytics & Insights
+The Streamlit dashboard includes:
 
-### 1. Driver Victories & Podiums Evolution (2021–2026)
-Analyzing total Grand Prix wins and podiums across the hybrid era: Max Verstappen leads with **61 wins and 90 podiums**, followed by Lando Norris (**13 wins, 47 podiums**), Lewis Hamilton (**11 wins, 42 podiums**), Oscar Piastri (**9 wins, 28 podiums**), and Charles Leclerc (**7 wins, 42 podiums**).
+### 📡 Live Timing
 
-<div align="center">
-  <img src="./outputs/driver_wins_podiums_evolution.png" alt="Driver Wins and Podiums" width="900" />
-</div>
+- Current or most recent session and circuit
+- Driver order and team identity
+- Latest lap time and sector times
+- Gap to leader and interval data when published
+- Track temperature, air temperature, and rainfall state
+- Race-control feed, flags, and session events
+- Configurable automatic refresh interval
 
----
+### 🟢 Live Championship
 
-### 2. Constructor Championship Shift & Win Share % (2021–2026)
-Visualizing the major power shift in modern Formula 1: Red Bull dominance in 2022–2023 was challenged in 2024 by McLaren and Ferrari, followed by McLaren's championship run in 2025 (775 points, 14 wins) and Mercedes' resurgence in 2026 (408 points, 9 wins).
+- Current driver standings
+- Constructor standings
+- Latest race results
+- Full season schedule
+- API freshness and source metadata
 
-<div align="center">
-  <img src="./outputs/constructor_dominance_shift.png" alt="Constructor Dominance Shift" width="900" />
-</div>
+### 🎯 Podium Prediction
 
----
+- Podium probability from the production model artifact
+- Driver rolling points and finishing form
+- Constructor rolling strength
+- Grid position and circuit difficulty interactions
+- Manual race scenario controls
 
-### 3. Car Development Trajectory & Team Pace Index
-Evaluating car development across seasons: average starting grid position per constructor serves as a direct indicator of pure aerodynamic and power unit pace.
+### ⏱️ Strategy Lab
 
-<div align="center">
-  <img src="./outputs/car_development_pace_gap.png" alt="Car Development Pace Gap" width="850" />
-</div>
+- Undercut and overcut scenario simulation
+- Gap-before-pit sensitivity
+- Fresh-tire advantage modeling
+- Tire-age degradation effects
+- Lap-by-lap cumulative strategy delta
 
----
+### 📈 Historical Analytics
 
-### 4. Driver Efficiency & Race-Craft Profiling
-Comparing average qualifying grid position against average race finish position. Drivers positioned below the diagonal reference line consistently make net position gains during Grand Prix races.
+- Driver wins, podiums, points, and average finish
+- Constructor points trajectory
+- Qualifying pace versus race-day position gain
+- Stored model evaluation charts
 
-<div align="center">
-  <img src="./outputs/driver_performance_profile.png" alt="Driver Efficiency Profile" width="850" />
-</div>
+### 🔬 Data Quality
 
----
+- Row counts and current-season coverage
+- Duplicate driver-race detection
+- Missing grid-position checks
+- Live versus fallback status
+- Data-source and telemetry provenance
 
-### 5. Grid Position to Podium & Win Conversion Rate
-Analysis of 2,565 official race starts: pole position ($P1$) delivers an **82%+ podium conversion rate**, with front-row starts capturing the overwhelming majority of race victories.
+## Architecture
 
-<div align="center">
-  <img src="./outputs/qualifying_to_podium_matrix.png" alt="Qualifying to Podium Matrix" width="850" />
-</div>
-
----
-
-### 6. Model ROC-AUC & Confusion Matrix on Real 2025–2026 Data
-
-<div align="center">
-  <img src="./outputs/roc_auc_curve.png" alt="ROC Curve" width="48%" />
-  <img src="./outputs/model_confusion_matrix.png" alt="Confusion Matrix" width="48%" />
-</div>
-
----
-
-## 🗂️ Project Architecture
-
+```mermaid
+flowchart LR
+    A[Jolpica F1 API\nresults / standings / schedule] --> B[src/live_data.py]
+    C[OpenF1 API\nsessions / laps / weather / race control] --> B
+    D[Versioned CSV snapshot\noffline fallback] --> B
+    B --> E[Cached normalized data]
+    E --> F[Feature engineering]
+    F --> G[Podium model]
+    E --> H[Streamlit dashboard]
+    G --> H
+    H --> I[Live Timing / Prediction / Strategy / Analytics]
 ```
+
+## Repository layout
+
+```text
 f1-race-intelligence-analytics/
-├── data/
-│   ├── f1db/                            # Official F1 Database CSV extracts (2021-2026)
-│   ├── raw/
-│   │   ├── f1_races.csv                 # 2,565 real official Grand Prix records
-│   │   ├── f1_pit_stops.csv             # Official pit stop durations and intervals
-│   │   └── f1_lap_telemetry.csv         # Lap telemetry across tire compounds
-│   └── processed/
-│       └── f1_features.csv              # 35 engineered features for ML models
-├── src/
-│   ├── data_loader.py                   # Ingestion & ETL pipeline for official F1DB data
-│   ├── feature_engineering.py           # Rolling form, constructor dominance & grid interaction
-│   ├── models.py                        # Model training, evaluation & artifact export
-│   ├── strategy_simulator.py            # Tactical pit stop undercut/overcut simulation
-│   └── visualizer.py                    # Driver, team dominance & car development charts
 ├── app/
-│   └── app.py                           # 5-Tab Interactive Streamlit Race Intelligence Dashboard
-├── notebooks/
-│   └── f1_data_science_deep_dive.ipynb  # Full EDA and modeling notebook
-├── outputs/                             # High-res charts & serialized model artifacts
-│   ├── podium_model.joblib
-│   ├── tire_model.joblib
-│   ├── driver_wins_podiums_evolution.png
-│   ├── constructor_dominance_shift.png
-│   ├── car_development_pace_gap.png
-│   ├── driver_performance_profile.png
-│   ├── feature_importance_podium.png
-│   ├── model_confusion_matrix.png
-│   ├── qualifying_to_podium_matrix.png
-│   ├── roc_auc_curve.png
-│   └── tire_degradation_curves.png
+│   └── app.py                    # Streamlit dashboard and live refresh UI
+├── src/
+│   ├── live_data.py              # Jolpica + OpenF1 clients, caching, normalization
+│   ├── data_loader.py            # Historical dataset ingestion and ETL
+│   ├── feature_engineering.py    # Rolling form, team strength, grid interactions
+│   ├── models.py                 # Classification/regression training and artifacts
+│   ├── strategy_simulator.py     # Undercut/overcut decision engine
+│   └── visualizer.py             # Historical analytics charts
+├── data/
+│   ├── raw/                      # Versioned bundled snapshot and derived telemetry
+│   └── processed/                # Engineered modeling features
+├── outputs/                      # Charts and serialized model artifacts
 ├── tests/
-│   └── test_pipeline.py                 # Automated unit test suite (5 passing tests)
-├── .github/workflows/
-│   └── python-ci.yml                    # GitHub Actions CI workflow
-├── requirements.txt                     # Project dependencies
-├── setup.py                             # Package installer configuration
-└── LICENSE                              # MIT License
+│   └── test_pipeline.py          # Dataset, parser, model, and strategy tests
+├── notebooks/                    # Exploratory data-science notebook
+├── requirements.txt
+└── setup.py
 ```
 
----
+## Quickstart
 
-## ⚡ Quickstart & Installation
+### 1. Clone
 
-### 1. Clone Repository
 ```bash
 git clone https://github.com/DhyeyTeraiya/f1-race-intelligence-analytics.git
 cd f1-race-intelligence-analytics
 ```
 
-### 2. Install Dependencies
+### 2. Install dependencies
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 3. Run Pipeline Tests
-```bash
-python tests/test_pipeline.py
-```
-
-### 4. Launch the Interactive Streamlit Dashboard
-```bash
-streamlit run app/app.py
-```
-Explore live race predictions, driver vs. driver battles, team development trajectories, and tactical undercut simulations on official 2021–2026 data.
-
----
-
-## 👤 Author
-
-**Dhyey Teraiya** — *Data Scientist & ML Engineer*
-- 🌐 **GitHub**: [@DhyeyTeraiya](https://github.com/DhyeyTeraiya)
-- 💼 **LinkedIn**: [dhyey-teraiya](https://linkedin.com/in/dhyey-teraiya)
-- 📧 **Email**: [dhyeyteraiya@gmail.com](mailto:dhyeyteraiya@gmail.com)
-
----
-
-⭐ *If you find this project valuable for motorsport analytics or data science research, please consider giving it a star!*
-
-## 🚀 Version 2.0: Live Championship Intelligence
-
-The dashboard now includes a **live Jolpica F1 API integration** with a 30-minute disk cache and offline fallback:
-
-- Current-season race results, schedule, driver standings, and constructor standings.
-- Manual **Refresh live data now** control in the Streamlit sidebar.
-- Automatic replacement of the bundled current-season snapshot with the latest API results.
-- Data-quality panel showing row counts, duplicates, missing grids, source, and fallback state.
-- Historical driver/team analytics and model inputs refreshed from the newest available results.
-- Nested API responses normalized through `src/live_data.py`, with parser tests that run without network access.
-
-The API source is the public [Jolpica F1 API](https://api.jolpi.ca/ergast/f1/), which provides Ergast-compatible historical and current championship data. The repository's lap telemetry file is a **derived modeling dataset**, not direct official car telemetry; the dashboard labels it accordingly rather than presenting synthetic values as official telemetry.
-
-### Run the live dashboard
-
-```bash
-pip install -r requirements.txt
-streamlit run app/app.py
-```
-
-### Run validation
+### 3. Run tests
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-## 📡 Version 2.1: Real-time session intelligence
+### 4. Launch the dashboard
 
-The dashboard now has a dedicated **Live Timing** workspace. It polls OpenF1 on a configurable 10–60 second interval and displays:
+```bash
+streamlit run app/app.py
+```
 
-- Current/recent session identity and circuit.
-- Driver order, latest lap, sector times, intervals, and gaps where published.
-- Track and air temperature plus rainfall state.
-- Race-control messages and flags.
-- Automatic Streamlit refresh without restarting the process.
+The app will be available at `http://localhost:8501`.
 
-The architecture deliberately separates two data products: **Jolpica** for championship results/standings and **OpenF1** for session timing/laps/weather/race-control data. OpenF1's documentation states that historical data is free while real-time access is a subscription feature; the app therefore degrades to cached/recent session data or Jolpica when live access is unavailable. This is a real provider boundary, not simulated timing.
+## Modeling approach
 
-## 🌐 Live Demo
+The current podium model uses a chronological split to reduce temporal leakage:
 
-[Open the live F1 Race Intelligence dashboard](https://8501-iznv4oh5993cxooqwmfkx-63b88170.sg2.manus.computer)
+- **Training window:** earlier seasons in the bundled dataset
+- **Holdout window:** later seasons
+- **Features:** starting grid, circuit difficulty, driver rolling form, constructor rolling points, grid interactions, pit-stop plan, and front-row indicators
+- **Artifact:** `outputs/podium_model.joblib`
 
-The same URL is configured in the GitHub repository's **About → Website** field.
+For serious deployment, model metrics should be recalculated whenever the live season is ingested. The dashboard displays the stored artifact's output rather than claiming that live data automatically retrains the model.
+
+## Data provenance
+
+- **Jolpica F1 API:** open Ergast-compatible results, standings, schedule, and race data.
+- **OpenF1 API:** session timing, lap/sector data, weather, position, and race-control events. OpenF1 is an unofficial project and is not affiliated with Formula 1 companies.
+- **Bundled CSV files:** versioned offline snapshot for reproducible tests and fallback operation.
+- **Lap telemetry note:** `data/raw/f1_lap_telemetry.csv` is a derived modeling dataset. It is not a direct official car telemetry feed and is labeled accordingly in the dashboard.
+
+## Testing and CI
+
+The test suite covers:
+
+- Historical dataset integrity
+- Chronological modeling split
+- Nested live API response normalization
+- Undercut simulation logic
+- Serialized-model inference
+
+GitHub Actions runs the Python test suite on pushes and pull requests to `main`.
+
+## Roadmap
+
+- Retrain and version the podium model on a scheduled cadence
+- Add uncertainty calibration and prediction intervals
+- Persist live session snapshots for replay and post-race analysis
+- Add tire-stint and pit-window inference from live timing
+- Add a production database and observability metrics
+- Support a paid official or commercial timing feed for uninterrupted race-day SLA
+
+## Author
+
+**Dhyey Teraiya** — Data Scientist & ML Engineer
+
+- GitHub: [@DhyeyTeraiya](https://github.com/DhyeyTeraiya)
+- LinkedIn: [dhyey-teraiya](https://linkedin.com/in/dhyey-teraiya)
+- Email: [dhyeyteraiya@gmail.com](mailto:dhyeyteraiya@gmail.com)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
