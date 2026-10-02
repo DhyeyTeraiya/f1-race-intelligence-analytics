@@ -205,3 +205,15 @@ streamlit run app/app.py
 ```bash
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## 📡 Version 2.1: Real-time session intelligence
+
+The dashboard now has a dedicated **Live Timing** workspace. It polls OpenF1 on a configurable 10–60 second interval and displays:
+
+- Current/recent session identity and circuit.
+- Driver order, latest lap, sector times, intervals, and gaps where published.
+- Track and air temperature plus rainfall state.
+- Race-control messages and flags.
+- Automatic Streamlit refresh without restarting the process.
+
+The architecture deliberately separates two data products: **Jolpica** for championship results/standings and **OpenF1** for session timing/laps/weather/race-control data. OpenF1's documentation states that historical data is free while real-time access is a subscription feature; the app therefore degrades to cached/recent session data or Jolpica when live access is unavailable. This is a real provider boundary, not simulated timing.

@@ -10,12 +10,13 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
 OUTPUTS_DIR = os.path.join(os.path.dirname(__file__), "..", "outputs")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
 sys.path.append(SRC_DIR)
-from live_data import load_live_season  # noqa: E402
+from live_data import fetch_openf1_live, load_live_season  # noqa: E402
 from strategy_simulator import StrategySimulator  # noqa: E402
 
 st.set_page_config(page_title="F1 Race Intelligence", page_icon="🏎️", layout="wide")
@@ -53,7 +54,11 @@ def load_ml_model():
 with st.sidebar:
     st.header("Data controls")
     force_refresh = st.button("Refresh live data now", type="primary")
-    st.caption("Live results and standings use the Jolpica F1 API. Cached responses are used if the API is temporarily unavailable.")
+    live_mode = st.toggle("Enable live session monitor", value=True)
+    refresh_seconds = st.slider("Refresh interval (seconds)", min_value=10, max_value=60, value=15, step=5)
+    if live_mode:
+        st_autorefresh(interval=refresh_seconds * 1000, key="openf1-auto-refresh")
+    st.caption("Jolpica supplies results/standings. OpenF1 supplies live session timing, laps, weather, and race control when available.")
 
 try:
     live = get_live_data(force_refresh)
@@ -71,6 +76,11 @@ except Exception as exc:
     schedule = pd.DataFrame()
     metadata = {"source": "Bundled repository snapshot", "error": str(exc)}
     live_ok = False
+
+try:
+    openf1 = fetch_openf1_live() if live_mode else {"session": {}, "leaderboard": pd.DataFrame(), "weather": {}, "race_control": pd.DataFrame(), "latest_event": {}, "metadata": {}}
+except Exception:
+    openf1 = {"session": {}, "leaderboard": pd.DataFrame(), "weather": {}, "race_control": pd.DataFrame(), "latest_event": {}, "metadata": {"source": "OpenF1 unavailable"}}
 
 bundle_races, telemetry = get_bundle_data()
 df_races = bundle_races.copy()
@@ -92,7 +102,7 @@ metrics = [
     (str(current_season), "Live season"),
     (str(live_results["round"].nunique()) if live_ok else "—", "Rounds loaded"),
     (latest_date_text, "Latest result"),
-    ("Jolpica" if live_ok else "Fallback", "Data source"),
+    ("LIVE" if not openf1["leaderboard"].empty else ("Jolpica" if live_ok else "Fallback"), "Data source"),
 ]
 cols = st.columns(5)
 for col, (value, label) in zip(cols, metrics):
@@ -102,8 +112,8 @@ st.caption(f"{latest_race} • {metadata.get('source', 'Unknown source')} • ca
 if not live_ok:
     st.warning("Live API data was not available. The dashboard is showing the versioned repository snapshot instead.")
 
-tab_live, tab_predict, tab_strategy, tab_history, tab_quality = st.tabs([
-    "🟢 Live Championship", "🎯 Podium Prediction", "⏱️ Strategy Lab", "📈 Historical Analytics", "🔬 Data Quality"
+tab_live, tab_timing, tab_predict, tab_strategy, tab_history, tab_quality = st.tabs([
+    "🟢 Live Championship", "📡 Live Timing", "🎯 Podium Prediction", "⏱️ Strategy Lab", "📈 Historical Analytics", "🔬 Data Quality"
 ])
 
 with tab_live:
@@ -129,6 +139,38 @@ with tab_live:
     if not schedule.empty:
         st.markdown("#### Season schedule")
         st.dataframe(schedule, use_container_width=True, hide_index=True)
+
+with tab_timing:
+    session = openf1.get("session", {})
+    board = openf1.get("leaderboard", pd.DataFrame())
+    weather = openf1.get("weather", {})
+    timing_meta = openf1.get("metadata", {})
+    st.subheader("Real-time session intelligence")
+    if session:
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Session", session.get("session_name", "Unknown"))
+        s2.metric("Circuit", session.get("circuit_short_name", "Unknown"))
+        s3.metric("Session key", session.get("session_key", "—"))
+        s4.metric("Timing rows", len(board))
+        st.caption(f"OpenF1 session {session.get('session_key')} • {timing_meta.get('fetched_at', 'unknown')} • refresh every {refresh_seconds}s")
+    else:
+        st.warning("No live OpenF1 session is currently available. Jolpica historical/current results remain active.")
+    if not board.empty:
+        display_cols = [c for c in ["position", "driver", "full_name", "team", "lap", "lap_time_sec", "sector_1_sec", "sector_2_sec", "sector_3_sec", "gap_to_leader_sec", "interval_sec"] if c in board.columns]
+        st.dataframe(board[display_cols], use_container_width=True, hide_index=True)
+        chart_df = board.dropna(subset=["position", "lap_time_sec"]).copy()
+        if not chart_df.empty:
+            chart_df["position"] = pd.to_numeric(chart_df["position"], errors="coerce")
+            chart_df["lap_time_sec"] = pd.to_numeric(chart_df["lap_time_sec"], errors="coerce")
+            st.plotly_chart(px.bar(chart_df.sort_values("lap_time_sec"), x="driver", y="lap_time_sec", color="team", title="Latest recorded lap pace"), use_container_width=True)
+    w1, w2, w3 = st.columns(3)
+    w1.metric("Track temperature", f"{weather.get('track_temperature', '—')}°C")
+    w2.metric("Air temperature", f"{weather.get('air_temperature', '—')}°C")
+    w3.metric("Rainfall", "Yes" if weather.get("rainfall") else "No")
+    events = openf1.get("race_control", pd.DataFrame())
+    if not events.empty:
+        st.markdown("#### Race control feed")
+        st.dataframe(events.tail(12).sort_values("date", ascending=False), use_container_width=True, hide_index=True)
 
 with tab_predict:
     st.subheader("Data-driven podium probability")

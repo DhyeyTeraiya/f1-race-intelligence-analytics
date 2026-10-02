@@ -179,3 +179,107 @@ if __name__ == "__main__":
     live = load_live_season()
     print(live["metadata"])
     print(live["drivers"].head(10).to_string(index=False))
+
+
+# OpenF1 live timing layer. OpenF1 documents real-time data as a subscription
+# feature; the adapter is intentionally optional and degrades gracefully to
+# Jolpica when live timing is unavailable.
+OPENF1_BASE_URL = "https://api.openf1.org/v1"
+
+
+def _openf1_json(path: str, *, ttl_seconds: int = 15) -> list[dict[str, Any]]:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_file = _cache_path("openf1_" + path)
+    if cache_file.exists() and time.time() - cache_file.stat().st_mtime < ttl_seconds:
+        return json.loads(cache_file.read_text(encoding="utf-8"))
+    request = Request(
+        f"{OPENF1_BASE_URL}/{path.lstrip('/')}",
+        headers={"User-Agent": "f1-race-intelligence-analytics/2.1"},
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        cache_file.write_text(json.dumps(payload), encoding="utf-8")
+        return payload
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+        if cache_file.exists():
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        return []
+
+
+def fetch_openf1_live(session_key: str | int = "latest") -> dict[str, Any]:
+    """Return the latest session state and normalized timing tables.
+
+    The endpoint works for live or recently completed sessions. During a race,
+    the leaderboard can be refreshed every 10–20 seconds without restarting
+    Streamlit; during practice/qualifying, lap and position data remain useful
+    even when race intervals are not published.
+    """
+    sessions = _openf1_json(f"sessions?session_key={session_key}")
+    session = sessions[-1] if sessions else {}
+    actual_key = session.get("session_key", session_key)
+    key = str(actual_key)
+    drivers = _openf1_json(f"drivers?session_key={key}")
+    positions = _openf1_json(f"position?session_key={key}")
+    laps = _openf1_json(f"laps?session_key={key}")
+    intervals = _openf1_json(f"intervals?session_key={key}")
+    weather = _openf1_json(f"weather?session_key={key}")
+    race_control = _openf1_json(f"race_control?session_key={key}")
+
+    driver_map = {int(row.get("driver_number")): row for row in drivers if row.get("driver_number") is not None}
+    latest_position: dict[int, dict[str, Any]] = {}
+    for row in positions:
+        if row.get("driver_number") is not None:
+            latest_position[int(row["driver_number"])] = row
+    latest_lap: dict[int, dict[str, Any]] = {}
+    for row in laps:
+        if row.get("driver_number") is not None:
+            latest_lap[int(row["driver_number"])] = row
+    latest_interval: dict[int, dict[str, Any]] = {}
+    for row in intervals:
+        if row.get("driver_number") is not None:
+            latest_interval[int(row["driver_number"])] = row
+
+    leaderboard = []
+    driver_numbers = set(driver_map) | set(latest_position) | set(latest_lap) | set(latest_interval)
+    for number in driver_numbers:
+        driver = driver_map.get(number, {})
+        pos = latest_position.get(number, {})
+        lap = latest_lap.get(number, {})
+        interval = latest_interval.get(number, {})
+        leaderboard.append({
+            "position": pos.get("position"),
+            "driver_number": number,
+            "driver": driver.get("name_acronym", str(number)),
+            "full_name": driver.get("full_name", "Unknown"),
+            "team": driver.get("team_name", "Unknown"),
+            "team_colour": driver.get("team_colour", "E10600"),
+            "lap": lap.get("lap_number"),
+            "lap_time_sec": lap.get("lap_duration"),
+            "sector_1_sec": lap.get("duration_sector_1"),
+            "sector_2_sec": lap.get("duration_sector_2"),
+            "sector_3_sec": lap.get("duration_sector_3"),
+            "gap_to_leader_sec": interval.get("gap_to_leader"),
+            "interval_sec": interval.get("interval"),
+            "is_pit_out_lap": lap.get("is_pit_out_lap"),
+        })
+    leaderboard_df = pd.DataFrame(leaderboard)
+    if not leaderboard_df.empty:
+        leaderboard_df.sort_values(["position", "driver"], na_position="last", inplace=True)
+        leaderboard_df.reset_index(drop=True, inplace=True)
+
+    last_weather = weather[-1] if weather else {}
+    last_event = race_control[-1] if race_control else {}
+    return {
+        "session": session,
+        "leaderboard": leaderboard_df,
+        "weather": last_weather,
+        "race_control": pd.DataFrame(race_control),
+        "latest_event": last_event,
+        "metadata": {
+            "source": "OpenF1 API",
+            "session_key": actual_key,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "live_timing_available": bool(intervals or laps or positions),
+        },
+    }
